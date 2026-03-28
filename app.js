@@ -19,32 +19,24 @@ let bgmSource = null;
 let isPlaying = false;      
 let currentBPM = 120; 
 
-let activePresetSequence = {}; 
 let queuedPattern = null; 
 let currentPattern = 'V'; 
 let halfwayTriggered = false;
-
-let queuedBox = null;                 
-let manualOverrideBoxId = null; 
 
 // --- 高精度狀態與指令時間追蹤器 ---
 window.lastAutoBoxId = null;    
 window.lastRenderedBox = null;
 window.lastRenderedActionTime = -1;
-window.lastManualOverrideTime = -1;
-let lastAbsoluteBeat = -1;      
 
 let ctxPlayStartTime = 0;
 let loopStartRealTime = 0;
 
 let audioLoopsProcessed = 0;
 let audioBeatIndex = 0;
-let audioPresetClock = 0;
 let audioPattern = 'V';
 
 let visualLoopsProcessed = 0;
 let visualBeatIndex = 0;
-let presetClock = 0;
 
 let playAnimationId = null;
 bgVideo.playbackRate = currentBPM / 122;
@@ -68,9 +60,7 @@ async function initializeApp() {
         try {
             const presetRawData = await (await fetch('presets.json')).json();
             presetRawData.forEach(p => {
-                const seqDict = {};
-                p.sequence.forEach(s => seqDict[s.time] = s.action);
-                presetDatabase[p.musicId] = seqDict;
+                presetDatabase[p.musicId] = p.sequence;
             });
         } catch (e) { console.warn("找不到 presets.json"); }
 
@@ -84,6 +74,7 @@ async function initializeApp() {
             song.rhythms['Z'] = 'R16'; 
             if (!song.rhythms['V']) song.rhythms['V'] = 'R01';
             if (!gridDatabase[song.id]) gridDatabase[song.id] = [];
+            if (!presetDatabase[song.id]) presetDatabase[song.id] = [];
         });
 
         initPlaylist();
@@ -115,6 +106,24 @@ function playHitSound(isAccent, preciseTime) {
     source.connect(gainNode);
     gainNode.connect(audioCtx.destination);
     source.start(preciseTime);
+}
+
+// ==========================================
+// 數學絕對查表函式
+// ==========================================
+function getActiveAction(clock) {
+    if(!armedSongInfo) return null;
+    const seq = presetDatabase[armedSongInfo.id] || [];
+    let active = null;
+    for(let i = 0; i < seq.length; i++) {
+        if(seq[i].time <= clock) active = seq[i].action;
+        else break;
+    }
+    if(!active) {
+        if(armedSongInfo.rhythms['I']) active = 'I';
+        else active = 'V';
+    }
+    return active;
 }
 
 // ==========================================
@@ -210,17 +219,6 @@ function updateRhythmUI() {
     }
 }
 
-function getGridBoxAtTime(decimalTime) {
-    if (!armedSongInfo) return null;
-    const seq = gridDatabase[armedSongInfo.id] || [];
-    let activeBox = null;
-    for (let i = 0; i < seq.length; i++) {
-        if (seq[i].time <= decimalTime + 0.0001) activeBox = seq[i].box;
-        else break;
-    }
-    return activeBox;
-}
-
 // ==========================================
 // 歌曲載入與重置
 // ==========================================
@@ -236,7 +234,6 @@ window.armSong = async function(index) {
 
     resetApp(); 
     armedSongInfo = song;
-    activePresetSequence = presetDatabase[song.id] || {};
 
     try {
         const response = await fetch(song.file);
@@ -267,22 +264,13 @@ function resetApp() {
         bgmSource = null;
     }
 
-    presetClock = 0;
     halfwayTriggered = false;
-    
-    if (activePresetSequence && activePresetSequence[0]) currentPattern = activePresetSequence[0];
-    else if (armedSongInfo && armedSongInfo.rhythms['I']) currentPattern = 'I';
-    else currentPattern = 'V'; 
-    
+    currentPattern = getActiveAction(0) || 'V'; 
     queuedPattern = null;
-    queuedBox = null;
-    manualOverrideBoxId = null;
     
     window.lastAutoBoxId = null;
     window.lastRenderedBox = null;
     window.lastRenderedActionTime = -1;
-    window.lastManualOverrideTime = -1;
-    lastAbsoluteBeat = -1;
     
     updateRhythmUI(); 
     playheadCurrent.style.display = 'none'; 
@@ -315,10 +303,12 @@ function playLoop() {
     const loopDurationRealTime = (60 / currentBPM) * 8;
     const secondsPerBeatRealTime = 60 / currentBPM;
 
-    // --- 1. Audio Scheduler (提前 0.1 秒預約音效卡：只跟隨基本節奏) ---
+    // --- 1. Audio Scheduler ---
     while (true) {
         let loopBaseRealTime = loopStartRealTime + (audioLoopsProcessed * loopDurationRealTime);
         if (loopBaseRealTime > lookaheadRealTime) break;
+
+        audioPattern = getActiveAction(audioLoopsProcessed);
 
         let currentRhythmId = armedSongInfo.rhythms[audioPattern];
         let beats = rhythmDatabase[currentRhythmId] ? rhythmDatabase[currentRhythmId].beats : [];
@@ -326,9 +316,7 @@ function playLoop() {
         if (audioBeatIndex >= beats.length) {
             audioLoopsProcessed++;
             audioBeatIndex = 0;
-            audioPresetClock++;
-            audioPattern = queuedPattern || activePresetSequence[audioPresetClock] || audioPattern;
-            continue;
+            continue; 
         }
 
         let beatPos = beats[audioBeatIndex];
@@ -351,12 +339,10 @@ function playLoop() {
     while (elapsedInVisualLoop >= loopDurationRealTime) {
         visualLoopsProcessed++;
         visualBeatIndex = 0;
-        presetClock++;
         halfwayTriggered = false;
         
-        let nextPattern = queuedPattern || activePresetSequence[presetClock] || currentPattern;
-        if (queuedPattern) queuedPattern = null; 
-        currentPattern = nextPattern;
+        currentPattern = getActiveAction(visualLoopsProcessed);
+        queuedPattern = null; 
         updateRhythmUI();
         
         visualLoopBaseRealTime = loopStartRealTime + (visualLoopsProcessed * loopDurationRealTime);
@@ -404,59 +390,57 @@ function playLoop() {
         }
     }
 
-    // --- 4. 自動化控制與指令震動點火 (僅跟隨切換指令) ---
-    if (autoBox !== window.lastAutoBoxId) {
-        manualOverrideBoxId = null;
-        window.lastAutoBoxId = autoBox;
-    }
+    // --- 4. 自動化控制、無條件震動點火 與 條件音效補償 ---
+    let boxSwitchedThisFrame = false;
 
-    let currentBeatInLoop = elapsedInVisualLoop / secondsPerBeatRealTime;
-    const absoluteBeat = Math.floor((visualLoopsProcessed * 8) + currentBeatInLoop);
-    
-    if (absoluteBeat > lastAbsoluteBeat) {
-        lastAbsoluteBeat = absoluteBeat;
-        if (queuedBox) {
-            manualOverrideBoxId = queuedBox;
-            window.lastManualOverrideTime = visualLoopsProcessed + ((absoluteBeat % 8) / 8); 
-            queuedBox = null; 
-        }
-    }
-
-    let finalActiveBox = manualOverrideBoxId || autoBox;
-    let finalActionTime = manualOverrideBoxId ? window.lastManualOverrideTime : activeActionTime;
-
-    if (finalActionTime !== window.lastRenderedActionTime || finalActiveBox !== window.lastRenderedBox) {
+    if (activeActionTime !== window.lastRenderedActionTime || autoBox !== window.lastRenderedBox) {
         [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(id => {
             const boxEl = document.getElementById(`box-${id}`);
             if (!boxEl) return;
 
-            if (id == finalActiveBox) {
+            if (id == autoBox) {
                 if (!boxEl.classList.contains('active')) {
                     boxEl.classList.add('active');
                 }
                 
-                // 只要收到新的指令時間，就讓方塊震動！
-                if (isPlaying && finalActionTime !== window.lastRenderedActionTime) {
+                if (isPlaying && activeActionTime !== window.lastRenderedActionTime) {
+                    
+                    // 【修正】：只要有切換指令，就無條件執行震動，恢復打擊回饋感！
                     boxEl.classList.remove('beat-hit');
                     void boxEl.offsetWidth;
                     boxEl.classList.add('beat-hit');
+                    boxSwitchedThisFrame = true;
+
+                    // 音效補償依然維持條件判斷：只有當基礎節奏為「空」時，才播放 Clap
+                    let actionClock = Math.floor(activeActionTime);
+                    let activePattern = getActiveAction(actionClock);
+                    let rId = armedSongInfo.rhythms[activePattern];
+                    let beatsForAction = rhythmDatabase[rId] ? rhythmDatabase[rId].beats : [];
+
+                    if (beatsForAction.length === 0 && autoBox !== 'CLEAR') {
+                        let songTime = activeActionTime * loopDurationRealTime;
+                        let playbackRatio = currentBPM / armedSongInfo.bpm;
+                        let exactCtxTime = ctxPlayStartTime + (songTime) / playbackRatio;
+                        if (exactCtxTime < audioCtx.currentTime) exactCtxTime = audioCtx.currentTime;
+                        playHitSound(false, exactCtxTime); // 播放 Clap.wav
+                    }
                 }
             } else {
                 boxEl.classList.remove('active', 'beat-hit');
             }
         });
 
-        window.lastRenderedBox = finalActiveBox;
-        window.lastRenderedActionTime = finalActionTime;
+        window.lastRenderedBox = autoBox;
+        window.lastRenderedActionTime = activeActionTime;
     }
 
-    // --- 5. 時序圖序列器光點 (僅跟隨基礎節奏) ---
+    // --- 5. 視覺序列器光點 (跟隨基礎節奏對齊) ---
+    let currentBeatInLoop = elapsedInVisualLoop / secondsPerBeatRealTime;
     let currentRhythmId = armedSongInfo.rhythms[currentPattern];
     let beats = rhythmDatabase[currentRhythmId] ? rhythmDatabase[currentRhythmId].beats : [];
 
     for (let i = visualBeatIndex; i < beats.length; i++) {
         if (currentBeatInLoop >= beats[i]) {
-            // 只有序列器光點會跟著背景節奏閃爍
             const noteEl = notesCurrentContainer.children[i];
             if (noteEl) {
                 noteEl.classList.remove('hit');
@@ -469,10 +453,12 @@ function playLoop() {
         }
     }
 
+    // 半拍前於 UI 顯示預約的次一個節奏 Pattern
     if (currentBeatInLoop >= 4 && !halfwayTriggered) {
         halfwayTriggered = true;
-        if (activePresetSequence[presetClock + 1]) {
-            queuedPattern = activePresetSequence[presetClock + 1];
+        let upcomingPattern = getActiveAction(visualLoopsProcessed + 1);
+        if (upcomingPattern !== currentPattern) {
+            queuedPattern = upcomingPattern;
             updateRhythmUI();
         }
     }
@@ -481,7 +467,7 @@ function playLoop() {
 }
 
 // ==========================================
-// 播放控制 (全局空白鍵切換)
+// 播放控制 (空白鍵控制播放/暫停)
 // ==========================================
 window.togglePlay = function() {
     if(!armedSongInfo || !bgmBuffer) return alert("請先從右側清單選擇並等待樂曲解碼完成！");
@@ -503,17 +489,12 @@ window.togglePlay = function() {
         
         audioLoopsProcessed = 0;
         audioBeatIndex = 0;
-        audioPresetClock = 0;
-        presetClock = 0;
-        halfwayTriggered = false;
-        
-        if (activePresetSequence[0]) currentPattern = activePresetSequence[0];
-        else if (armedSongInfo.rhythms['I']) currentPattern = 'I';
-        else currentPattern = 'V'; 
-        
-        audioPattern = currentPattern;
         visualLoopsProcessed = 0;
         visualBeatIndex = 0;
+        
+        halfwayTriggered = false;
+        audioPattern = getActiveAction(0);
+        currentPattern = getActiveAction(0);
         
         window.lastRenderedBox = null;
         window.lastRenderedActionTime = -1;
@@ -529,14 +510,6 @@ document.addEventListener('keydown', function(event) {
         event.preventDefault(); 
         togglePlay();
         return; 
-    }
-
-    const keyStr = event.key.toUpperCase(); 
-    if (armedSongInfo && armedSongInfo.rhythms[keyStr]) {
-        if (!isPlaying) return;
-        if (keyStr === currentPattern) queuedPattern = null;
-        else queuedPattern = keyStr;
-        updateRhythmUI(); 
     }
 });
 
