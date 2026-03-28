@@ -101,6 +101,10 @@
                 "action": "C"
             },
             {
+                "time": 36,
+                "action": "D"
+            },
+            {
                 "time": 40,
                 "action": "E"
             },
