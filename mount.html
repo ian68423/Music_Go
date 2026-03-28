@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音樂掛載與自動化設定</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr;
+            grid-template-rows: 50vh 50vh;
+            background-color: #121212;
+            color: #fff;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        /* 共通面板樣式 */
+        .panel { border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; background-color: #1a1a1a; }
+        .panel-header { padding: 12px; background-color: #252525; font-weight: bold; text-align: center; border-bottom: 1px solid #333; letter-spacing: 1px; flex-shrink: 0; }
+        .panel-content { flex: 1; overflow-y: auto; padding: 10px; }
+        .panel-content::-webkit-scrollbar { width: 8px; }
+        .panel-content::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+
+        /* 左上：查詢與節奏清單 */
+        .filter-container { padding: 10px; background-color: #222; border-bottom: 1px solid #333; }
+        .filter-label { font-size: 0.85rem; color: #aaa; display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .filter-track-wrapper { position: relative; width: 100%; height: 30px; background-color: #111; border-radius: 4px; display: grid; grid-template-columns: repeat(32, 1fr); border: 1px solid #444; }
+        .filter-step { border-right: 1px dashed rgba(255,255,255,0.05); cursor: pointer; position: relative;}
+        .filter-step:nth-child(4n+1) { border-left: 1px solid rgba(255,255,255,0.3); }
+        .filter-step:hover { background-color: rgba(255,255,255,0.1); }
+        .filter-step-active { position: absolute; top:20%; left:50%; transform:translateX(-50%); width:70%; height:60%; background-color:#FF00FF; pointer-events: none; border-radius:2px; box-shadow: 0 0 5px #FF00FF; }
+        .btn-clear { background: #555; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; }
+
+        .rhythm-item { display: flex; align-items: center; padding: 10px; margin-bottom: 8px; background-color: #2a2a2a; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+        .rhythm-item:hover { background-color: #333; }
+        .rhythm-item.selected { border-color: #FFD700; box-shadow: 0 0 8px rgba(255,215,0,0.4); }
+        .rhythm-id { width: 45px; font-weight: bold; color: #FFD700; flex-shrink: 0; }
+
+        .mini-track { position: relative; flex: 1; height: 24px; background-color: rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; margin: 0 10px; background-image: repeating-linear-gradient(90deg, transparent, transparent calc(12.5% - 1px), rgba(255,255,255,0.1) calc(12.5% - 1px), rgba(255,255,255,0.1) 12.5%); }
+        .mini-note { position: absolute; top: 20%; height: 60%; width: 5px; background-color: #00FFFF; border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 3px rgba(0,255,255,0.5); }
+
+        /* 左下：掛載清單 */
+        .mount-item { display: flex; align-items: center; padding: 10px; margin-bottom: 8px; background-color: #222; border-radius: 6px; }
+        .mount-key { width: 30px; font-weight: bold; font-size: 1.2rem; color: #fff; text-align: center; background: #444; border-radius: 4px; padding: 4px; }
+        .btn-sm { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; margin-left: 5px; }
+        .btn-apply { background-color: #4CAF50; }
+        .btn-delete { background-color: #F44336; }
+
+        /* 右上：自動化清單 */
+        /* 新增游標與 Hover 效果，讓它看起來可以點擊 */
+        .auto-item { display: flex; align-items: center; padding: 10px; margin-bottom: 8px; background-color: #222; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; border: 1px solid transparent; }
+        .auto-item:hover { background-color: #333; border-color: #FF9800; }
+        .auto-time { width: 50px; font-weight: bold; color: #FF9800; }
+        .auto-action { width: 40px; font-weight: bold; font-size: 1.2rem; text-align: center; background: #444; border-radius: 4px; padding: 4px; margin-right: 10px;}
+        .warning-text { color: #F44336; font-size: 0.85rem; font-weight: bold; flex: 1; text-align: center; }
+
+        /* 右下：音樂清單與匯出區塊 */
+        .music-item { padding: 15px; margin-bottom: 8px; background-color: #2a2a2a; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+        .music-item:hover { background-color: #333; }
+        .music-item.armed { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.2); }
+        .music-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; color: #fff; }
+        .music-bpm { font-size: 0.85rem; color: #aaa; }
+
+        .export-container { padding: 10px; background-color: #222; border-top: 1px solid #333; display: flex; gap: 10px; }
+        .btn-export { flex: 1; padding: 10px; font-size: 1rem; font-weight: bold; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-export-songs { background-color: #9C27B0; }
+        .btn-export-songs:hover { background-color: #8E24AA; }
+        .btn-export-presets { background-color: #009688; }
+        .btn-export-presets:hover { background-color: #00897B; }
+
+        /* 中上：大型時序圖 */
+        .center-top-panel { display: flex; flex-direction: column; justify-content: center; padding: 30px; }
+        .large-track-wrapper { position: relative; width: 100%; height: 100px; background-color: #111; border-radius: 8px; border: 1px solid #444; display: grid; grid-template-columns: repeat(32, 1fr); margin-top: 20px;}
+        .large-step { border-right: 1px dashed rgba(255,255,255,0.05); position: relative; }
+        .large-step:nth-child(4n+2) { border-left: 1px solid rgba(255,255,255,0.3); }
+        .large-note { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); width: 70%; height: 70%; background-color: #00FFFF; border-radius: 4px; box-shadow: 0 0 10px rgba(0,255,255,0.5); }
+        .playhead { position: absolute; top: -10px; bottom: -10px; width: 3px; background-color: #FF0000; box-shadow: 0 0 15px #FF0000; z-index: 10; display: none; }
+        
+        @keyframes pulseAnim {
+            0% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+            30% { transform: translateX(-50%) scale(1.5); filter: brightness(1.8); }
+            100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+        }
+        .large-note.hit { animation: pulseAnim 0.2s ease-out; }
+        .visualizer-info { text-align: center; font-size: 1.5rem; font-weight: bold; color: #FFD700; letter-spacing: 2px;}
+
+        /* 中下：控制列 */
+        .center-bottom-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 20px; }
+        
+        .control-row { display: flex; align-items: center; width: 100%; justify-content: center; gap: 20px; font-size: 1.1rem; }
+        input[type="range"] { width: 300px; cursor: pointer; }
+        
+        .timeline-info { display: flex; justify-content: space-between; width: 80%; font-family: monospace; font-size: 1.1rem; color: #aaa; }
+        .clock-display { color: #FF9800; font-weight: bold; margin-left: 10px; font-family: sans-serif;}
+
+        .btn-main-play { background-color: #4CAF50; color: white; border: none; padding: 15px 40px; font-size: 1.5rem; font-weight: bold; border-radius: 40px; cursor: pointer; transition: 0.2s; width: 200px; }
+        .btn-main-play.playing { background-color: #F44336; }
+
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+        .action-btn { background-color: #333; color: white; border: 1px solid #555; padding: 10px 15px; font-size: 1.2rem; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .action-btn:hover { background-color: #555; }
+        .action-btn.clear { background-color: #F44336; border-color: #F44336; }
+
+        .ui-locked { pointer-events: none; opacity: 0.4; filter: grayscale(100%); }
+
+    </style>
+</head>
+<body>
+
+    <div class="panel" style="grid-column: 1; grid-row: 1;">
+        <div class="panel-header">基本節奏資料庫</div>
+        <div class="filter-container">
+            <div class="filter-label">
+                <span>查詢篩選 (AND)</span>
+                <button class="btn-clear" onclick="clearFilter()">清除查詢</button>
+            </div>
+            <div class="filter-track-wrapper" id="filter-track-wrapper"></div>
+        </div>
+        <div class="panel-content disable-on-play" id="rhythm-list"></div>
+    </div>
+
+    <div class="panel" style="grid-column: 1; grid-row: 2;">
+        <div class="panel-header">目前掛載設定</div>
+        <div class="panel-content disable-on-play" id="mount-list"></div>
+    </div>
+
+    <div class="panel center-top-panel" style="grid-column: 2; grid-row: 1;">
+        <div class="visualizer-info" id="visualizer-info">準備就緒</div>
+        <div class="large-track-wrapper" id="large-track-wrapper">
+            <div class="playhead" id="playhead"></div>
+        </div>
+    </div>
+
+    <div class="panel center-bottom-panel" style="grid-column: 2; grid-row: 2;">
+        <div class="control-row disable-on-play">
+            <label>節拍速度 (<span id="bpm-val">120</span> BPM)</label>
+            <input type="range" id="bpm-slider" min="40" max="240" value="120" oninput="updateBPM(this.value)">
+        </div>
+
+        <div class="timeline-info">
+            <div>
+                <span id="time-current">00:00.000</span>
+                <span class="clock-display" id="clock-current">[時脈: 0]</span>
+            </div>
+            <span id="time-total">00:00.000</span>
+        </div>
+        <input type="range" id="timeline-slider" min="0" max="100" value="0" step="0.01" class="disable-on-play" style="width: 80%;" oninput="seekAudio(this.value)">
+
+        <button class="btn-main-play" id="btn-play" onclick="togglePlay()">播放</button>
+
+        <div class="action-buttons disable-on-play" id="action-buttons"></div>
+    </div>
+
+    <div class="panel" style="grid-column: 3; grid-row: 1;">
+        <div class="panel-header">自動化操作列表</div>
+        <div class="panel-content disable-on-play" id="automation-list"></div>
+    </div>
+
+    <div class="panel" style="grid-column: 3; grid-row: 2;">
+        <div class="panel-header">樂曲資料庫</div>
+        <div class="panel-content disable-on-play" id="music-list"></div>
+        <div class="export-container disable-on-play">
+            <button class="btn-export btn-export-songs" onclick="exportSongs()">📥 匯出 songs.json</button>
+            <button class="btn-export btn-export-presets" onclick="exportPresets()">📥 匯出 presets.json</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 全域變數
+        // ==========================================
+        let rhythmDatabase = {};
+        let musicData = {};
+        let presetDatabase = {};
+        let hasUnsavedChanges = false;
+        
+        const MOUNT_KEYS = ['I', 'V', 'X', 'C', 'D', 'F', 'R', 'B', 'G', 'T', 'E', 'Z'];
+
+        let selectedRhythmId = null;
+        let armedSongInfo = null;
+        let filterBeats = [];
+
+        // --- 全 Web Audio API 高精度播放引擎變數 ---
+        let isPlaying = false;
+        let playOffset = 0;              
+        let ctxPlayStartTime = 0;        
+        let currentBPM = 120;
+        let playAnimationId = null;
+        
+        let schedulerClock = 0;
+        let schedulerBeatIndex = 0;
+        let visualClock = 0;
+        let visualBeatIndex = 0;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let clapBuffer = null;
+        let capitalBuffer = null;
+        let bgmBuffer = null;            
+        let bgmSource = null;            
+
+        // DOM 元素
+        const domFilter = document.getElementById('filter-track-wrapper');
+        const domRhythmList = document.getElementById('rhythm-list');
+        const domMountList = document.getElementById('mount-list');
+        const domAutomationList = document.getElementById('automation-list');
+        const domMusicList = document.getElementById('music-list');
+        const domLargeTrack = document.getElementById('large-track-wrapper');
+        const domPlayhead = document.getElementById('playhead');
+        const domBpmSlider = document.getElementById('bpm-slider');
+        const domBpmVal = document.getElementById('bpm-val');
+        const domTimeline = document.getElementById('timeline-slider');
+        const domTimeCurrent = document.getElementById('time-current');
+        const domTimeTotal = document.getElementById('time-total');
+        const domClockCurrent = document.getElementById('clock-current');
+        const domBtnPlay = document.getElementById('btn-play');
+        const domActionBtns = document.getElementById('action-buttons');
+        const domVisualizerInfo = document.getElementById('visualizer-info');
+
+        // ==========================================
+        // 防呆警告與匯出
+        // ==========================================
+        window.addEventListener('beforeunload', function (e) {
+            if (hasUnsavedChanges) {
+                const confirmationMessage = '系統不會儲存你的變更。請先「匯出」之後再離開網頁。';
+                e.returnValue = confirmationMessage; 
+                return confirmationMessage; 
+            }
+        });
+
+        function downloadJSON(content, filename) {
+            const blob = new Blob([content], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        window.exportSongs = function() {
+            const jsonString = JSON.stringify(musicData, null, 4);
+            downloadJSON(jsonString, 'songs.json');
+            hasUnsavedChanges = false; 
+        };
+
+        window.exportPresets = function() {
+            const exportArray = [];
+            for (const [musicId, sequence] of Object.entries(presetDatabase)) {
+                if (sequence && sequence.length > 0) {
+                    exportArray.push({
+                        musicId: isNaN(musicId) ? musicId : Number(musicId),
+                        sequence: sequence
+                    });
+                }
+            }
+            const jsonString = JSON.stringify(exportArray, null, 4);
+            downloadJSON(jsonString, 'presets.json');
+            hasUnsavedChanges = false; 
+        };
+
+        // ==========================================
+        // 系統初始化
+        // ==========================================
+        async function initApp() {
+            try {
+                clapBuffer = await decodeAudio('Clap.wav');
+                capitalBuffer = await decodeAudio('Capital.wav');
+
+                rhythmDatabase = await (await fetch('rhythms.json')).json();
+                musicData = await (await fetch('songs.json')).json();
+                
+                try {
+                    const presetRaw = await (await fetch('presets.json')).json();
+                    presetRaw.forEach(p => {
+                        presetDatabase[p.musicId] = p.sequence;
+                    });
+                } catch(e) { console.warn("找不到 presets.json"); }
+
+                musicData.forEach(song => {
+                    if (!song.rhythms) song.rhythms = {};
+                    song.rhythms['Z'] = 'R16';
+                    if (!presetDatabase[song.id]) presetDatabase[song.id] = [];
+                });
+
+                renderFilterTrack();
+                renderRhythmList();
+                renderMountList(); 
+                renderAutomationList();
+                renderMusicList();
+                renderLargeTrackGrid();
+                renderActionButtons();
+                
+            } catch(e) {
+                alert("載入失敗，請確認 JSON 檔案存在且使用 Local Server 開啟。");
+                console.error(e);
+            }
+        }
+
+        async function decodeAudio(url) {
+            const res = await fetch(url);
+            return await audioCtx.decodeAudioData(await res.arrayBuffer());
+        }
+
+        function playHitSound(isFirst, preciseTime) {
+            const buf = isFirst ? capitalBuffer : clapBuffer;
+            if(!buf) return;
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const gain = audioCtx.createGain();
+            gain.gain.value = 1.5;
+            src.connect(gain);
+            gain.connect(audioCtx.destination);
+            src.start(preciseTime); 
+        }
+
+        // ==========================================
+        // UI 渲染與互動
+        // ==========================================
+        function getMiniTrackHTML(rhythmId) {
+            if (!rhythmId || !rhythmDatabase[rhythmId]) return `<div class="mini-track"></div>`;
+            const beats = rhythmDatabase[rhythmId].beats;
+            let blocks = '';
+            beats.forEach(b => {
+                blocks += `<div class="mini-note" style="left: ${(b/8)*100}%"></div>`;
+            });
+            return `<div class="mini-track">${blocks}</div>`;
+        }
+
+        function renderFilterTrack() {
+            domFilter.innerHTML = '';
+            for(let i=0; i<32; i++) {
+                const b = i * 0.25;
+                const div = document.createElement('div');
+                div.className = 'filter-step';
+                div.onclick = () => {
+                    if(filterBeats.includes(b)) filterBeats = filterBeats.filter(x => x!==b);
+                    else filterBeats.push(b);
+                    renderFilterTrack();
+                    renderRhythmList();
+                };
+                if(filterBeats.includes(b)) {
+                    div.innerHTML = `<div class="filter-step-active"></div>`;
+                }
+                domFilter.appendChild(div);
+            }
+        }
+
+        window.clearFilter = function() {
+            filterBeats = [];
+            renderFilterTrack();
+            renderRhythmList();
+        }
+
+        function renderRhythmList() {
+            domRhythmList.innerHTML = '';
+            const allIds = Object.keys(rhythmDatabase).sort();
+            const filtered = allIds.filter(id => {
+                return filterBeats.every(fb => rhythmDatabase[id].beats.includes(fb));
+            });
+
+            filtered.forEach(id => {
+                const div = document.createElement('div');
+                div.className = `rhythm-item ${id === selectedRhythmId ? 'selected' : ''}`;
+                div.onclick = () => {
+                    selectedRhythmId = id;
+                    renderRhythmList(); 
+                };
+                div.innerHTML = `<div class="rhythm-id">${id}</div>${getMiniTrackHTML(id)}`;
+                domRhythmList.appendChild(div);
+            });
+        }
+
+        function renderMountList() {
+            domMountList.innerHTML = '';
+            const currentRhythms = armedSongInfo ? armedSongInfo.rhythms : {};
+
+            MOUNT_KEYS.forEach(key => {
+                const rId = currentRhythms[key];
+                const div = document.createElement('div');
+                div.className = 'mount-item';
+                div.innerHTML = `
+                    <div class="mount-key">${key}</div>
+                    ${getMiniTrackHTML(rId)}
+                    <button class="btn-sm btn-apply" onclick="applyMount('${key}')">套用</button>
+                    <button class="btn-sm btn-delete" onclick="deleteMount('${key}')">刪除</button>
+                `;
+                domMountList.appendChild(div);
+            });
+        }
+
+        window.applyMount = function(key) {
+            if(!armedSongInfo) return alert("請先從右下角選擇一首要編輯的樂曲！");
+            if(!selectedRhythmId) return alert("請先從左上方列表選擇要套用的基本節奏！");
+            
+            hasUnsavedChanges = true; 
+            armedSongInfo.rhythms[key] = selectedRhythmId;
+            renderMountList();
+            renderAutomationList();
+            updateTimelineVisuals();
+        }
+
+        window.deleteMount = function(key) {
+            if(!armedSongInfo) return alert("請先從右下角選擇一首要編輯的樂曲！");
+            
+            hasUnsavedChanges = true; 
+            delete armedSongInfo.rhythms[key];
+            renderMountList();
+            renderAutomationList();
+            updateTimelineVisuals();
+        }
+
+        function renderAutomationList() {
+            domAutomationList.innerHTML = '';
+            if(!armedSongInfo) {
+                domAutomationList.innerHTML = '<div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.9rem;">請先選擇右下角歌曲</div>';
+                return;
+            }
+
+            const seq = presetDatabase[armedSongInfo.id] || [];
+            seq.forEach(item => {
+                const rId = armedSongInfo.rhythms[item.action];
+                const div = document.createElement('div');
+                div.className = 'auto-item';
+                
+                let visualHtml = '';
+                if(rId && rhythmDatabase[rId]) {
+                    visualHtml = getMiniTrackHTML(rId);
+                } else {
+                    visualHtml = `<div class="warning-text">⚠️ 尚未掛載節奏</div>`;
+                }
+
+                div.innerHTML = `
+                    <div class="auto-time">${item.time}</div>
+                    <div class="auto-action">${item.action}</div>
+                    ${visualHtml}
+                `;
+                
+                // --- 新增：點擊跳轉時間軸功能 ---
+                div.onclick = () => {
+                    const clockDuration = (60 / armedSongInfo.bpm) * 8;
+                    // 加入 1 毫秒寬容值，確保 Math.floor 運算時不會因為浮點數精度掉到前一個時脈
+                    let targetTime = (item.time * clockDuration) + 0.001; 
+                    
+                    if (bgmBuffer && targetTime > bgmBuffer.duration) {
+                        targetTime = bgmBuffer.duration;
+                    }
+                    
+                    seekAudio(targetTime);
+                };
+
+                domAutomationList.appendChild(div);
+            });
+        }
+
+        function renderMusicList() {
+            domMusicList.innerHTML = '';
+            musicData.forEach((song, i) => {
+                const div = document.createElement('div');
+                div.className = `music-item ${armedSongInfo && armedSongInfo.id === song.id ? 'armed' : ''}`;
+                div.onclick = () => loadMusic(song);
+                div.innerHTML = `
+                    <div class="music-title">${song.id}. ${song.title}</div>
+                    <div class="music-bpm">BPM: ${song.bpm}</div>
+                `;
+                domMusicList.appendChild(div);
+            });
+        }
+
+        // ==========================================
+        // 非同步音訊解碼與記憶體載入
+        // ==========================================
+        async function loadMusic(song) {
+            if(isPlaying) togglePlay(); 
+            armedSongInfo = song;
+            
+            domPlayhead.style.display = 'block';
+            domVisualizerInfo.textContent = "⏳ 載入並解碼中...";
+            setUIDisabled(true); 
+            
+            try {
+                const response = await fetch(song.file);
+                const arrayBuffer = await response.arrayBuffer();
+                bgmBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                domBpmSlider.value = song.bpm;
+                currentBPM = song.bpm;
+                domBpmVal.textContent = currentBPM;
+
+                domTimeline.max = bgmBuffer.duration;
+                domTimeline.value = 0; 
+                playOffset = 0;
+                domTimeTotal.textContent = formatTime(bgmBuffer.duration);
+                updateTimelineVisuals();
+                
+            } catch(e) {
+                alert("音訊解碼失敗！");
+                console.error(e);
+            } finally {
+                setUIDisabled(false);
+                renderMusicList(); 
+                renderMountList();
+                renderAutomationList();
+            }
+        }
+
+        function formatTime(secs) {
+            if(isNaN(secs)) return "00:00.000";
+            const m = Math.floor(secs / 60).toString().padStart(2, '0');
+            const s = Math.floor(secs % 60).toString().padStart(2, '0');
+            const ms = Math.floor((secs % 1) * 1000).toString().padStart(3, '0');
+            return `${m}:${s}.${ms}`;
+        }
+
+        function getClockByTime(timeSecs) {
+            if(!armedSongInfo) return 0;
+            const clockDuration = (60 / armedSongInfo.bpm) * 8;
+            return Math.floor(timeSecs / clockDuration);
+        }
+
+        function getActiveAction(clock) {
+            if(!armedSongInfo) return null;
+            const seq = presetDatabase[armedSongInfo.id] || [];
+            let active = null;
+            for(let i=0; i<seq.length; i++) {
+                if(seq[i].time <= clock) active = seq[i].action;
+                else break;
+            }
+            if(!active) {
+                if(armedSongInfo.rhythms['I']) active = 'I';
+                else active = 'V';
+            }
+            return active;
+        }
+
+        function getBeatsForAction(action) {
+            if(!action || !armedSongInfo.rhythms[action]) return [];
+            const rId = armedSongInfo.rhythms[action];
+            if(rhythmDatabase[rId]) return rhythmDatabase[rId].beats;
+            return [];
+        }
+
+        // ==========================================
+        // 拖曳、變速與排程重置引擎
+        // ==========================================
+        function resetSchedulers(songTime) {
+            if(!armedSongInfo) return;
+            const clockDuration = (60 / armedSongInfo.bpm) * 8;
+            const secondsPerBeat = 60 / armedSongInfo.bpm;
+            
+            schedulerClock = Math.floor(songTime / clockDuration);
+            const currentBeatInLoop = (songTime % clockDuration) / secondsPerBeat;
+            
+            let action = getActiveAction(schedulerClock);
+            let beats = getBeatsForAction(action);
+            
+            schedulerBeatIndex = 0;
+            while(beats && schedulerBeatIndex < beats.length && beats[schedulerBeatIndex] < currentBeatInLoop) {
+                schedulerBeatIndex++;
+            }
+            if (beats && schedulerBeatIndex >= beats.length) {
+                schedulerClock++;
+                schedulerBeatIndex = 0;
+            }
+
+            visualClock = schedulerClock;
+            visualBeatIndex = schedulerBeatIndex;
+        }
+
+        window.updateBPM = function(val) {
+            const wasPlaying = isPlaying;
+            if (wasPlaying) togglePlay(); 
+            
+            currentBPM = val;
+            domBpmVal.textContent = val;
+            
+            if (wasPlaying) togglePlay();
+        }
+
+        window.seekAudio = function(val) {
+            if (!bgmBuffer) return;
+            const wasPlaying = isPlaying;
+            if(wasPlaying) togglePlay(); 
+            
+            playOffset = Number(val);
+            updateTimelineVisuals(); 
+            
+            if(wasPlaying) togglePlay(); 
+        }
+
+        function renderActionButtons() {
+            domActionBtns.innerHTML = '';
+            MOUNT_KEYS.forEach(key => {
+                const btn = document.createElement('button');
+                btn.className = 'action-btn';
+                btn.textContent = key;
+                btn.onclick = () => setAutomation(key);
+                domActionBtns.appendChild(btn);
+            });
+            const btnClear = document.createElement('button');
+            btnClear.className = 'action-btn clear';
+            btnClear.textContent = '清除';
+            btnClear.onclick = () => setAutomation('CLEAR');
+            domActionBtns.appendChild(btnClear);
+        }
+
+        function setAutomation(action) {
+            if(!armedSongInfo) return alert("請先選擇右下角樂曲！");
+            
+            hasUnsavedChanges = true; 
+            const currTime = isPlaying ? 
+                playOffset + (audioCtx.currentTime - ctxPlayStartTime) * (currentBPM / armedSongInfo.bpm) : 
+                playOffset;
+            
+            const clock = getClockByTime(currTime);
+            let seq = presetDatabase[armedSongInfo.id] || [];
+            
+            seq = seq.filter(s => s.time !== clock);
+            
+            if(action !== 'CLEAR') {
+                seq.push({ time: clock, action: action });
+                seq.sort((a, b) => a.time - b.time);
+            }
+            
+            presetDatabase[armedSongInfo.id] = seq;
+            renderAutomationList();
+            updateTimelineVisuals();
+            
+            if(isPlaying) resetSchedulers(currTime);
+        }
+
+        function renderLargeTrackGrid() {
+            domLargeTrack.innerHTML = '';
+            domLargeTrack.appendChild(domPlayhead);
+            for(let i=0; i<32; i++) {
+                const div = document.createElement('div');
+                div.className = 'large-step';
+                div.id = `large-step-${i}`;
+                domLargeTrack.appendChild(div);
+            }
+        }
+
+        function renderLargeNotes(actionStr) {
+            for(let i=0; i<32; i++) {
+                const el = document.getElementById(`large-step-${i}`);
+                const existing = el.querySelector('.large-note');
+                if(existing) el.removeChild(existing);
+            }
+
+            if(!armedSongInfo || !actionStr) {
+                domVisualizerInfo.textContent = "等待掛載";
+                return;
+            }
+
+            domVisualizerInfo.textContent = `執行中: ${actionStr}`;
+            const beats = getBeatsForAction(actionStr);
+
+            beats.forEach(beat => {
+                const idx = Math.round(beat * 4);
+                const el = document.getElementById(`large-step-${idx}`);
+                if(el) {
+                    const note = document.createElement('div');
+                    note.className = 'large-note';
+                    el.appendChild(note);
+                }
+            });
+        }
+
+        function updateTimelineVisuals() {
+            if (!armedSongInfo) return;
+
+            const currTime = isPlaying ? 
+                playOffset + (audioCtx.currentTime - ctxPlayStartTime) * (currentBPM / armedSongInfo.bpm) : 
+                playOffset;
+
+            domTimeCurrent.textContent = formatTime(currTime);
+            domTimeline.value = currTime;
+            
+            const clockDuration = (60 / armedSongInfo.bpm) * 8;
+            const currentClock = Math.floor(currTime / clockDuration);
+            domClockCurrent.textContent = `[時脈: ${currentClock}]`;
+            
+            const secondsPerBeat = 60 / armedSongInfo.bpm;
+            const currentBeatInLoop = (currTime % clockDuration) / secondsPerBeat;
+            domPlayhead.style.left = `${(currentBeatInLoop / 8) * 100}%`;
+            
+            const action = getActiveAction(currentClock);
+            renderLargeNotes(action);
+        }
+
+        // ==========================================
+        // 終極播放引擎：全 Web Audio API 排程
+        // ==========================================
+        window.togglePlay = function() {
+            if(!armedSongInfo || !bgmBuffer) return alert("請先等待樂曲解碼完成！");
+            
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+
+            if(isPlaying) {
+                isPlaying = false;
+                
+                playOffset = playOffset + (audioCtx.currentTime - ctxPlayStartTime) * (currentBPM / armedSongInfo.bpm);
+                if(bgmSource) {
+                    bgmSource.stop();
+                    bgmSource.disconnect();
+                    bgmSource = null;
+                }
+                
+                domBtnPlay.textContent = "播放";
+                domBtnPlay.classList.remove('playing');
+                
+                setUIDisabled(false);
+                updateTimelineVisuals();
+                cancelAnimationFrame(playAnimationId);
+            } else {
+                isPlaying = true;
+                
+                bgmSource = audioCtx.createBufferSource();
+                bgmSource.buffer = bgmBuffer;
+                bgmSource.playbackRate.value = currentBPM / armedSongInfo.bpm;
+                bgmSource.connect(audioCtx.destination);
+                
+                ctxPlayStartTime = audioCtx.currentTime;
+                
+                bgmSource.start(0, playOffset);
+                
+                domBtnPlay.textContent = "暫停";
+                domBtnPlay.classList.add('playing');
+                setUIDisabled(true);
+                
+                resetSchedulers(playOffset);
+                
+                playAnimationId = requestAnimationFrame(playLoop);
+            }
+        }
+
+        function setUIDisabled(disabled) {
+            const panels = document.querySelectorAll('.disable-on-play');
+            panels.forEach(p => {
+                if(disabled) p.classList.add('ui-locked');
+                else p.classList.remove('ui-locked');
+            });
+            document.querySelectorAll('.action-btn').forEach(btn => btn.disabled = disabled);
+            domTimeline.disabled = disabled;
+        }
+
+        function playLoop() {
+            if(!isPlaying) return;
+            
+            const playbackRatio = currentBPM / armedSongInfo.bpm;
+            const currentSongTime = playOffset + (audioCtx.currentTime - ctxPlayStartTime) * playbackRatio;
+            
+            if (currentSongTime >= bgmBuffer.duration) {
+                if(isPlaying) togglePlay(); 
+                return;
+            }
+
+            updateTimelineVisuals();
+
+            const clockDuration = (60 / armedSongInfo.bpm) * 8;
+            const lookaheadSongTime = currentSongTime + (0.1 * playbackRatio); 
+            
+            while(true) {
+                const action = getActiveAction(schedulerClock);
+                const beats = getBeatsForAction(action);
+                
+                if(!beats || schedulerBeatIndex >= beats.length) {
+                    schedulerClock++;
+                    schedulerBeatIndex = 0;
+                    if(schedulerClock * clockDuration > bgmBuffer.duration) break;
+                    continue;
+                }
+
+                const beatPos = beats[schedulerBeatIndex];
+                const beatSongTime = schedulerClock * clockDuration + beatPos * (60 / armedSongInfo.bpm);
+
+                if(beatSongTime < lookaheadSongTime) {
+                    if(beatSongTime >= playOffset) {
+                        const exactCtxTime = ctxPlayStartTime + (beatSongTime - playOffset) / playbackRatio;
+                        playHitSound(schedulerBeatIndex === 0, exactCtxTime);
+                    }
+                    schedulerBeatIndex++;
+                } else {
+                    break; 
+                }
+            }
+
+            while(true) {
+                const action = getActiveAction(visualClock);
+                const beats = getBeatsForAction(action);
+                
+                if(!beats || visualBeatIndex >= beats.length) {
+                    visualClock++;
+                    visualBeatIndex = 0;
+                    if(visualClock * clockDuration > bgmBuffer.duration) break;
+                    continue;
+                }
+
+                const beatPos = beats[visualBeatIndex];
+                const beatSongTime = visualClock * clockDuration + beatPos * (60 / armedSongInfo.bpm);
+
+                if(currentSongTime >= beatSongTime) {
+                    const idx = Math.round(beatPos * 4);
+                    const el = document.getElementById(`large-step-${idx}`);
+                    if(el) {
+                        const note = el.querySelector('.large-note');
+                        if(note) {
+                            note.classList.remove('hit');
+                            void note.offsetWidth;
+                            note.classList.add('hit');
+                        }
+                    }
+                    visualBeatIndex++;
+                } else {
+                    break;
+                }
+            }
+
+            playAnimationId = requestAnimationFrame(playLoop);
+        }
+
+        initApp();
+    </script>
+</body>
+</html>

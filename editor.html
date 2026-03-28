@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基本節奏編輯器 (Rhythm Editor)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            background-color: #121212;
+            color: #fff;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        /* ================= 左側列表區塊 ================= */
+        .sidebar {
+            width: 480px;
+            background-color: #1e1e1e;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .header {
+            padding: 20px;
+            background-color: #252525;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            letter-spacing: 1px;
+        }
+
+        .filter-container {
+            padding: 15px;
+            background-color: #222;
+            border-bottom: 1px solid #333;
+        }
+
+        .filter-label {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-track-wrapper {
+            position: relative;
+            width: 100%;
+            height: 40px;
+            background-color: #1a1a1a;
+            border-radius: 6px;
+            border: 1px solid #444;
+            display: grid;
+            grid-template-columns: repeat(32, 1fr);
+        }
+
+        .filter-step {
+            position: relative;
+            border-right: 1px dashed rgba(255,255,255,0.05);
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        .filter-step:hover { background-color: rgba(255,255,255,0.1); }
+        .filter-step:nth-child(4n + 1) { border-left: 1px solid rgba(255,255,255,0.3); }
+
+        .filter-step-active {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70%;
+            height: 60%;
+            background-color: #FF00FF; 
+            border-radius: 2px;
+            pointer-events: none;
+            box-shadow: 0 0 6px rgba(255, 0, 255, 0.5);
+        }
+
+        .btn-clear {
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .btn-clear:hover { background-color: #666; }
+
+        .list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .list-container::-webkit-scrollbar { width: 8px; }
+        .list-container::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        .list-container::-webkit-scrollbar-track { background: transparent; }
+
+        .rhythm-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 12px;
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #333;
+            transition: background-color 0.2s;
+        }
+        .rhythm-item:hover { background-color: #333; }
+        .rhythm-item.editing { border-color: #00FFFF; box-shadow: 0 0 10px rgba(0,255,255,0.3); }
+
+        .rhythm-id {
+            width: 45px;
+            font-weight: bold;
+            color: #FFD700;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .mini-track {
+            position: relative;
+            flex: 1;
+            height: 28px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 15px;
+            background-image: repeating-linear-gradient(90deg, transparent, transparent calc(12.5% - 1px), rgba(255, 255, 255, 0.1) calc(12.5% - 1px), rgba(255, 255, 255, 0.1) 12.5%);
+        }
+
+        .mini-note-block {
+            position: absolute;
+            top: 20%;
+            height: 60%;
+            width: 6px;
+            background-color: #00FFFF;
+            border-radius: 2px;
+            transform: translateX(-50%);
+            box-shadow: 0 0 4px rgba(0, 255, 255, 0.6);
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: white;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.8; }
+        .btn-edit { background-color: #2196F3; }
+        .btn-delete { background-color: #F44336; }
+        
+        .add-container {
+            padding: 15px;
+            border-top: 1px solid #333;
+            background-color: #222;
+        }
+        .btn-add {
+            width: 100%;
+            background-color: #4CAF50;
+            font-size: 1.1rem;
+            padding: 12px;
+            font-weight: bold;
+        }
+        .btn-add:hover { background-color: #45a049; }
+
+        /* --- 新增：匯出按鈕樣式 --- */
+        .btn-export {
+            width: 100%;
+            background-color: #9C27B0; /* 獨特的紫色區分功能 */
+            font-size: 1.1rem;
+            padding: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .btn-export:hover { background-color: #8E24AA; }
+
+        /* ================= 右側工作區 ================= */
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #121212;
+            position: relative;
+        }
+
+        .empty-state {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .editor-content {
+            display: none; 
+            flex-direction: column;
+            padding: 40px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .editor-header {
+            font-size: 1.8rem;
+            color: #FFD700;
+            margin-bottom: 40px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .editor-track-wrapper {
+            position: relative;
+            width: 100%;
+            height: 80px;
+            background-color: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #333;
+            display: grid;
+            grid-template-columns: repeat(32, 1fr); 
+            margin-bottom: 40px;
+        }
+
+        .editor-track-wrapper.locked {
+            pointer-events: none; 
+            opacity: 0.6;
+        }
+
+        .editor-step {
+            position: relative;
+            border-right: 1px dashed rgba(255,255,255,0.05);
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        .editor-step:hover { background-color: rgba(255,255,255,0.1); }
+        .editor-step:nth-child(4n + 2) { border-left: 1px solid rgba(255,255,255,0.3); }
+
+        .step-active {
+            position: absolute;
+            top: 15%; left: 50%; transform: translateX(-50%);
+            width: 60%; height: 70%;
+            background-color: #00FFFF;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            pointer-events: none; 
+        }
+
+        .playhead {
+            position: absolute;
+            top: -10px; bottom: -10px; width: 3px;
+            background-color: #FF0000;
+            box-shadow: 0 0 15px #FF0000;
+            z-index: 10;
+            pointer-events: none;
+            display: none;
+        }
+
+        @keyframes hitPulse {
+            0%   { transform: translateX(-50%) scale(1); filter: brightness(1); }
+            30%  { transform: translateX(-50%) scale(1.4); filter: brightness(1.8); }
+            100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+        }
+        .step-active.hit { animation: hitPulse 0.2s ease-out; }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .btn-play {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            width: 150px;
+            transition: background-color 0.2s;
+        }
+        .btn-play.playing { background-color: #F44336; }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.2rem;
+        }
+        
+        input[type="range"] { width: 200px; cursor: pointer; }
+        
+        input[type="range"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header">
+            <span>基本節奏資料庫</span>
+        </div>
+
+        <div class="filter-container">
+            <div class="filter-label">
+                <span>篩選器 (AND 邏輯)</span>
+                <button class="btn-clear" onclick="clearFilter()">清除查詢</button>
+            </div>
+            <div class="filter-track-wrapper" id="filter-track-wrapper"></div>
+        </div>
+
+        <div class="list-container" id="editor-list">
+            <div style="text-align: center; color: #666; margin-top: 20px;">載入資料中...</div>
+        </div>
+
+        <div class="add-container">
+            <button class="btn btn-add" onclick="addNewRhythm()">+ 新增基本節奏</button>
+            <button class="btn btn-export" onclick="exportRhythms()">📥 匯出為 JSON</button>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="empty-state" id="empty-state">
+            <div style="font-size: 3rem; margin-bottom: 10px;">⚙️</div>
+            <div>請從左側選擇一個節奏進行編輯</div>
+        </div>
+
+        <div class="editor-content" id="editor-content">
+            <div class="editor-header" id="editor-title">編輯中: R01</div>
+
+            <div class="editor-track-wrapper" id="editor-track-wrapper">
+                <div class="playhead" id="playhead"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-play" id="btn-play" onclick="togglePreview()">▶ 播放</button>
+                <div class="slider-container">
+                    <label for="bpm-slider">節拍速度: <span id="bpm-value">120</span> BPM</label>
+                    <input type="range" id="bpm-slider" min="60" max="240" value="120" oninput="updateBPM(this.value)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 系統變數
+        // ==========================================
+        let rhythmDatabase = {};
+        let editingId = null;
+        
+        // --- 新增：追蹤是否有未儲存(未匯出)的變更 ---
+        let hasUnsavedChanges = false;
+        
+        let filterBeats = [];
+        
+        let isPreviewing = false;
+        let previewBPM = 120;
+        let previewStartTime = null;
+        let lastPreviewLoopIndex = -1;
+        let lastPreviewBeatIndex = -1;
+        let previewAnimationId = null;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let clapBuffer = null;
+        let capitalBuffer = null;
+
+        const filterTrackWrapper = document.getElementById('filter-track-wrapper');
+        const editorListContainer = document.getElementById('editor-list');
+        const emptyState = document.getElementById('empty-state');
+        const editorContent = document.getElementById('editor-content');
+        const editorTitle = document.getElementById('editor-title');
+        const editorTrackWrapper = document.getElementById('editor-track-wrapper');
+        const playhead = document.getElementById('playhead');
+        const btnPlay = document.getElementById('btn-play');
+        const bpmValueText = document.getElementById('bpm-value');
+        const bpmSlider = document.getElementById('bpm-slider');
+
+        // ==========================================
+        // 網頁離開/重新整理防呆警告
+        // ==========================================
+        window.addEventListener('beforeunload', function (e) {
+            if (hasUnsavedChanges) {
+                // 現代瀏覽器通常會忽略自訂文字，而是顯示系統預設的「您有未儲存的變更」對話框
+                const confirmationMessage = '系統不會儲存你的變更。請先「匯出」之後再離開網頁。';
+                e.returnValue = confirmationMessage; 
+                return confirmationMessage; 
+            }
+        });
+
+        // ==========================================
+        // 初始化與讀取資料
+        // ==========================================
+        async function initializeEditor() {
+            try {
+                const clapRes = await fetch('Clap.wav');
+                clapBuffer = await audioCtx.decodeAudioData(await clapRes.arrayBuffer());
+                
+                const capitalRes = await fetch('Capital.wav');
+                capitalBuffer = await audioCtx.decodeAudioData(await capitalRes.arrayBuffer());
+
+                const response = await fetch('rhythms.json');
+                rhythmDatabase = await response.json();
+                
+                renderFilterTrack();
+                renderEditorList();
+            } catch (error) {
+                console.error("載入失敗", error);
+                editorListContainer.innerHTML = '<div style="color: #F44336; text-align: center; margin-top: 20px;">資料載入失敗，請確認已使用 Local Server 開啟。</div>';
+            }
+        }
+
+        // ==========================================
+        // 查詢過濾器 (Filter)
+        // ==========================================
+        function renderFilterTrack() {
+            filterTrackWrapper.innerHTML = '';
+            for (let i = 0; i < 32; i++) {
+                const beatValue = i * 0.25;
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'filter-step';
+                
+                stepDiv.onclick = () => {
+                    toggleFilterBeat(beatValue);
+                };
+
+                if (filterBeats.includes(beatValue)) {
+                    const activeBlock = document.createElement('div');
+                    activeBlock.className = 'filter-step-active';
+                    stepDiv.appendChild(activeBlock);
+                }
+                filterTrackWrapper.appendChild(stepDiv);
+            }
+        }
+
+        function toggleFilterBeat(beatValue) {
+            if (filterBeats.includes(beatValue)) {
+                filterBeats = filterBeats.filter(b => b !== beatValue);
+            } else {
+                filterBeats.push(beatValue);
+            }
+            renderFilterTrack();
+            renderEditorList();
+        }
+
+        function clearFilter() {
+            filterBeats = [];
+            renderFilterTrack();
+            renderEditorList();
+        }
+
+        // ==========================================
+        // 匯出 JSON 功能
+        // ==========================================
+        function exportRhythms() {
+            // 將記憶體中的物件轉為格式化的 JSON 字串
+            const jsonString = JSON.stringify(rhythmDatabase, null, 4);
+            
+            // 建立一個虛擬的檔案 Blob
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            // 建立隱藏的 a 標籤來觸發下載
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rhythms.json'; // 預設儲存檔名
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理釋放記憶體
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // 成功匯出後，重置未儲存狀態標記
+            hasUnsavedChanges = false;
+        }
+
+        // ==========================================
+        // 左側：渲染清單與新增、刪除
+        // ==========================================
+        function renderEditorList() {
+            editorListContainer.innerHTML = '';
+            
+            const rhythmIds = Object.keys(rhythmDatabase).sort();
+            const filteredIds = rhythmIds.filter(id => {
+                const beats = rhythmDatabase[id].beats;
+                return filterBeats.every(fb => beats.includes(fb));
+            });
+
+            if (filteredIds.length === 0) {
+                editorListContainer.innerHTML = '<div style="text-align: center; color: #666; margin-top: 20px;">找不到符合條件的節奏</div>';
+                return;
+            }
+
+            filteredIds.forEach(id => {
+                const data = rhythmDatabase[id];
+                let blocksHTML = '';
+                data.beats.forEach(beat => {
+                    blocksHTML += `<div class="mini-note-block" style="left: ${(beat / 8) * 100}%"></div>`;
+                });
+
+                const isCurrentlyEditing = (id === editingId) ? 'editing' : '';
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `rhythm-item ${isCurrentlyEditing}`;
+                itemDiv.innerHTML = `
+                    <div class="rhythm-id">${id}</div>
+                    <div class="mini-track">${blocksHTML}</div>
+                    <div class="actions">
+                        <button class="btn btn-edit" onclick="loadRhythmToEditor('${id}')">修改</button>
+                        <button class="btn btn-delete" onclick="deleteRhythm('${id}')">刪除</button>
+                    </div>
+                `;
+                editorListContainer.appendChild(itemDiv);
+            });
+        }
+
+        function addNewRhythm() {
+            hasUnsavedChanges = true; // 標記已修改
+
+            const rhythmIds = Object.keys(rhythmDatabase);
+            let maxNum = 0;
+            rhythmIds.forEach(id => {
+                const match = id.match(/R(\d+)/);
+                if(match) {
+                    const num = parseInt(match[1], 10);
+                    if(num > maxNum) maxNum = num;
+                }
+            });
+            
+            const nextNum = maxNum + 1;
+            const newId = 'R' + nextNum.toString().padStart(2, '0');
+
+            rhythmDatabase[newId] = {
+                beats: [],
+                notes: "" 
+            };
+
+            clearFilter();
+            renderEditorList();
+            loadRhythmToEditor(newId);
+
+            setTimeout(() => {
+                editorListContainer.scrollTop = editorListContainer.scrollHeight;
+            }, 100);
+        }
+
+        function deleteRhythm(id) {
+            if (confirm(`確定要刪除基本節奏 [ ${id} ] 嗎？\n(注意：這將會影響所有有掛載此節奏的歌曲)`)) {
+                hasUnsavedChanges = true; // 標記已修改
+                delete rhythmDatabase[id]; 
+                
+                if (editingId === id) {
+                    if (isPreviewing) togglePreview(); 
+                    editingId = null;
+                    emptyState.style.display = 'block';
+                    editorContent.style.display = 'none';
+                }
+                
+                renderEditorList();
+            }
+        }
+
+        // ==========================================
+        // 右側：編輯器工作區
+        // ==========================================
+        function loadRhythmToEditor(id) {
+            if (isPreviewing) togglePreview(); 
+
+            editingId = id;
+            editorTitle.textContent = `編輯中: ${id}`;
+            emptyState.style.display = 'none';
+            editorContent.style.display = 'flex';
+
+            renderEditorList(); 
+            renderWorkspaceTrack();
+        }
+
+        function renderWorkspaceTrack() {
+            editorTrackWrapper.innerHTML = '';
+            editorTrackWrapper.appendChild(playhead); 
+
+            const currentBeats = rhythmDatabase[editingId].beats;
+
+            for (let i = 0; i < 32; i++) {
+                const beatValue = i * 0.25; 
+                
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'editor-step';
+                stepDiv.onclick = () => toggleBeat(beatValue);
+
+                if (currentBeats.includes(beatValue)) {
+                    const activeBlock = document.createElement('div');
+                    activeBlock.className = 'step-active';
+                    activeBlock.id = `workspace-step-${i}`; 
+                    stepDiv.appendChild(activeBlock);
+                }
+
+                editorTrackWrapper.appendChild(stepDiv);
+            }
+        }
+
+        function toggleBeat(beatValue) {
+            if (isPreviewing) return;
+            hasUnsavedChanges = true; // 標記已修改
+
+            let beatsArray = rhythmDatabase[editingId].beats;
+            
+            if (beatsArray.includes(beatValue)) {
+                beatsArray = beatsArray.filter(b => b !== beatValue);
+            } else {
+                beatsArray.push(beatValue);
+                beatsArray.sort((a, b) => a - b);
+            }
+
+            rhythmDatabase[editingId].beats = beatsArray;
+
+            renderWorkspaceTrack();
+            renderEditorList();
+        }
+
+        // ==========================================
+        // 預覽與音效引擎
+        // ==========================================
+        function updateBPM(val) {
+            previewBPM = val;
+            bpmValueText.textContent = val;
+        }
+
+        function playHitSound(isFirst) {
+            const buffer = isFirst ? capitalBuffer : clapBuffer;
+            if (!buffer) return;
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.value = 1.5;
+            source.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            source.start(0);
+        }
+
+        function togglePreview() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            isPreviewing = !isPreviewing;
+
+            if (isPreviewing) {
+                btnPlay.textContent = '⏹ 停止';
+                btnPlay.classList.add('playing');
+                editorTrackWrapper.classList.add('locked'); 
+                playhead.style.display = 'block';
+                
+                bpmSlider.disabled = true;
+                
+                previewStartTime = performance.now();
+                lastPreviewLoopIndex = -1;
+                lastPreviewBeatIndex = -1;
+                previewLoopCheck();
+            } else {
+                btnPlay.textContent = '▶ 播放';
+                btnPlay.classList.remove('playing');
+                editorTrackWrapper.classList.remove('locked'); 
+                playhead.style.display = 'none';
+                
+                bpmSlider.disabled = false;
+                
+                if (previewAnimationId) {
+                    cancelAnimationFrame(previewAnimationId);
+                }
+            }
+        }
+
+        function previewLoopCheck() {
+            if (!isPreviewing) return;
+
+            const now = performance.now();
+            const elapsed = (now - previewStartTime) / 1000;
+            const secondsPerBeat = 60 / previewBPM;
+            const loopDuration = secondsPerBeat * 8; 
+            
+            const currentLoopIndex = Math.floor(elapsed / loopDuration);
+            const currentBeatInLoop = (elapsed % loopDuration) / secondsPerBeat;
+
+            playhead.style.left = `${(currentBeatInLoop / 8) * 100}%`;
+
+            if (currentLoopIndex > lastPreviewLoopIndex) {
+                lastPreviewLoopIndex = currentLoopIndex;
+                lastPreviewBeatIndex = -1;
+            }
+
+            const beats = rhythmDatabase[editingId].beats;
+            
+            for (let i = lastPreviewBeatIndex + 1; i < beats.length; i++) {
+                if (currentBeatInLoop >= beats[i]) {
+                    
+                    const isFirstHit = (i === 0);
+                    playHitSound(isFirstHit);
+                    
+                    const stepIndex = Math.round(beats[i] * 4); 
+                    const targetBlock = document.getElementById(`workspace-step-${stepIndex}`);
+                    
+                    if (targetBlock) {
+                        targetBlock.classList.remove('hit');
+                        void targetBlock.offsetWidth; 
+                        targetBlock.classList.add('hit');
+                    }
+
+                    lastPreviewBeatIndex = i;
+                } else {
+                    break;
+                }
+            }
+
+            previewAnimationId = requestAnimationFrame(previewLoopCheck);
+        }
+
+        // 啟動程式
+        initializeEditor();
+    </script>
+</body>
+</html>

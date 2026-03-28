@@ -1,0 +1,345 @@
+[
+    {
+        "musicId": 1,
+        "sequence": [
+            {
+                "time": 8,
+                "action": "R"
+            },
+            {
+                "time": 10,
+                "action": "X"
+            },
+            {
+                "time": 11,
+                "action": "E"
+            },
+            {
+                "time": 12,
+                "action": "C"
+            },
+            {
+                "time": 20,
+                "action": "Z"
+            }
+        ]
+    },
+    {
+        "musicId": 2,
+        "sequence": [
+            {
+                "time": 2,
+                "action": "V"
+            },
+            {
+                "time": 10,
+                "action": "C"
+            },
+            {
+                "time": 14,
+                "action": "D"
+            },
+            {
+                "time": 16,
+                "action": "F"
+            },
+            {
+                "time": 24,
+                "action": "C"
+            },
+            {
+                "time": 28,
+                "action": "D"
+            },
+            {
+                "time": 32,
+                "action": "B"
+            },
+            {
+                "time": 36,
+                "action": "C"
+            },
+            {
+                "time": 44,
+                "action": "E"
+            },
+            {
+                "time": 48,
+                "action": "Z"
+            }
+        ]
+    },
+    {
+        "musicId": 3,
+        "sequence": [
+            {
+                "time": 4,
+                "action": "V"
+            },
+            {
+                "time": 10,
+                "action": "X"
+            },
+            {
+                "time": 12,
+                "action": "C"
+            },
+            {
+                "time": 16,
+                "action": "D"
+            },
+            {
+                "time": 20,
+                "action": "E"
+            },
+            {
+                "time": 24,
+                "action": "F"
+            },
+            {
+                "time": 30,
+                "action": "X"
+            },
+            {
+                "time": 32,
+                "action": "C"
+            },
+            {
+                "time": 40,
+                "action": "E"
+            },
+            {
+                "time": 44,
+                "action": "Z"
+            }
+        ]
+    },
+    {
+        "musicId": 4,
+        "sequence": [
+            {
+                "time": 2,
+                "action": "V"
+            },
+            {
+                "time": 6,
+                "action": "C"
+            },
+            {
+                "time": 10,
+                "action": "I"
+            },
+            {
+                "time": 12,
+                "action": "E"
+            },
+            {
+                "time": 14,
+                "action": "F"
+            },
+            {
+                "time": 30,
+                "action": "B"
+            },
+            {
+                "time": 32,
+                "action": "E"
+            },
+            {
+                "time": 34,
+                "action": "F"
+            },
+            {
+                "time": 42,
+                "action": "T"
+            },
+            {
+                "time": 46,
+                "action": "D"
+            },
+            {
+                "time": 47,
+                "action": "F"
+            },
+            {
+                "time": 55,
+                "action": "Z"
+            }
+        ]
+    },
+    {
+        "musicId": 6,
+        "sequence": [
+            {
+                "time": 5,
+                "action": "V"
+            },
+            {
+                "time": 12,
+                "action": "X"
+            },
+            {
+                "time": 13,
+                "action": "C"
+            },
+            {
+                "time": 20,
+                "action": "X"
+            },
+            {
+                "time": 21,
+                "action": "C"
+            },
+            {
+                "time": 25,
+                "action": "F"
+            },
+            {
+                "time": 26,
+                "action": "R"
+            },
+            {
+                "time": 29,
+                "action": "T"
+            },
+            {
+                "time": 31,
+                "action": "Z"
+            },
+            {
+                "time": 32,
+                "action": "X"
+            },
+            {
+                "time": 33,
+                "action": "C"
+            },
+            {
+                "time": 41,
+                "action": "B"
+            },
+            {
+                "time": 44,
+                "action": "X"
+            },
+            {
+                "time": 45,
+                "action": "C"
+            },
+            {
+                "time": 48,
+                "action": "X"
+            },
+            {
+                "time": 49,
+                "action": "C"
+            },
+            {
+                "time": 52,
+                "action": "X"
+            },
+            {
+                "time": 53,
+                "action": "Z"
+            }
+        ]
+    },
+    {
+        "musicId": 7,
+        "sequence": [
+            {
+                "time": 2,
+                "action": "V"
+            },
+            {
+                "time": 6,
+                "action": "X"
+            },
+            {
+                "time": 9,
+                "action": "D"
+            },
+            {
+                "time": 10,
+                "action": "C"
+            },
+            {
+                "time": 14,
+                "action": "V"
+            },
+            {
+                "time": 18,
+                "action": "X"
+            },
+            {
+                "time": 20,
+                "action": "D"
+            },
+            {
+                "time": 22,
+                "action": "C"
+            },
+            {
+                "time": 26,
+                "action": "B"
+            },
+            {
+                "time": 28,
+                "action": "D"
+            },
+            {
+                "time": 30,
+                "action": "C"
+            },
+            {
+                "time": 34,
+                "action": "Z"
+            }
+        ]
+    },
+    {
+        "musicId": 8,
+        "sequence": [
+            {
+                "time": 0,
+                "action": "I"
+            },
+            {
+                "time": 4,
+                "action": "V"
+            },
+            {
+                "time": 12,
+                "action": "X"
+            },
+            {
+                "time": 16,
+                "action": "Z"
+            },
+            {
+                "time": 17,
+                "action": "C"
+            },
+            {
+                "time": 25,
+                "action": "F"
+            },
+            {
+                "time": 33,
+                "action": "X"
+            },
+            {
+                "time": 37,
+                "action": "Z"
+            },
+            {
+                "time": 38,
+                "action": "C"
+            },
+            {
+                "time": 46,
+                "action": "Z"
+            }
+        ]
+    }
+]

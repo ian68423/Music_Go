@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九宮格自動化腳本編寫</title>
+    <style>
+        :root {
+            --loop-duration: 4s;
+        }
+
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr;
+            background-color: #121212; color: #fff; font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        .panel { border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; background-color: #1a1a1a; }
+        .panel-header { padding: 15px; background-color: #252525; font-weight: bold; text-align: center; border-bottom: 1px solid #333; letter-spacing: 1px; flex-shrink: 0; font-size: 1.1rem; }
+        .panel-content { flex: 1; overflow-y: auto; padding: 15px; }
+        .panel-content::-webkit-scrollbar { width: 8px; }
+        .panel-content::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+
+        .auto-item { display: flex; align-items: center; padding: 12px; margin-bottom: 10px; background-color: #222; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; border: 1px solid transparent; }
+        .auto-item:hover { background-color: #333; border-color: #FF9800; }
+        .auto-time { width: 100px; font-weight: bold; color: #FF9800; font-size: 1.1rem; letter-spacing: 1px; }
+        
+        .mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 2px; width: 36px; height: 36px; background-color: #444; padding: 3px; border-radius: 4px; margin-left: auto; }
+        .mini-box { background-color: #222; border-radius: 2px; }
+        .mini-box.active { background-color: #FFD700; box-shadow: 0 0 5px #FFD700; }
+
+        .music-item { padding: 15px; margin-bottom: 10px; background-color: #2a2a2a; border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
+        .music-item:hover { background-color: #333; }
+        .music-item.armed { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.2); }
+        .music-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; color: #fff; }
+        .music-bpm { font-size: 0.85rem; color: #aaa; }
+
+        .export-container { padding: 15px; background-color: #222; border-top: 1px solid #333; }
+        .btn-export { width: 100%; padding: 12px; font-size: 1.1rem; font-weight: bold; color: white; border: none; border-radius: 6px; cursor: pointer; background-color: #009688; transition: 0.2s; }
+        .btn-export:hover { background-color: #00897B; }
+
+        .center-panel { display: flex; flex-direction: column; }
+        .center-top { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid #333; background-color: #151515; }
+        .center-bottom { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background-color: #1a1a1a; gap: 20px; }
+
+        .large-grid { display: grid; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px); gap: 15px; margin-bottom: 30px; }
+        
+        .box-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .large-box { 
+            position: absolute; 
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.1); 
+            border-radius: 15px; 
+            cursor: pointer; 
+            transition: background-color 0.1s, border-color 0.1s; 
+            border: 2px solid transparent; 
+            backdrop-filter: blur(5px); 
+        }
+        .large-box:hover { border-color: #aaa; }
+        
+        .large-box.active { 
+            background-color: #FFD700; 
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); 
+            border: none; 
+            z-index: 5;
+        }
+
+        .large-box.beat-hit {
+            animation: boxHitPulse 0.25s ease-out;
+        }
+
+        @keyframes boxHitPulse {
+            0%   { transform: scale(1); filter: brightness(1); box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
+            15%  { transform: scale(1.12); filter: brightness(1.4); box-shadow: 0 0 40px rgba(255, 215, 0, 1); }
+            100% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
+        }
+
+        .approach-container {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 10; 
+        }
+        .approach-circle {
+            position: absolute;
+            top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border: 2px solid #FFD700;
+            background-color: transparent; 
+            border-radius: 15px;
+            pointer-events: none;
+        }
+
+        .btn-clear-grid { background-color: #F44336; color: white; border: none; padding: 10px 30px; font-size: 1.1rem; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .btn-clear-grid:hover { background-color: #D32F2F; }
+
+        .large-track-wrapper { position: relative; width: 90%; height: 80px; background-color: #111; border-radius: 8px; border: 1px solid #444; display: grid; grid-template-columns: repeat(32, 1fr); margin-bottom: 10px; }
+        .large-step { border-right: 1px dashed rgba(255,255,255,0.05); position: relative; cursor: pointer; transition: background-color 0.1s; }
+        .large-step:nth-child(4n+2) { border-left: 1px solid rgba(255,255,255,0.3); }
+        .large-step:hover { background-color: rgba(255,255,255,0.1); }
+        
+        .track-beat-note {
+            position: absolute; top: 20%; left: 50%; transform: translateX(-50%); width: 6px; height: 60%; background-color: rgba(0, 255, 255, 0.35); border-radius: 2px; pointer-events: none;
+        }
+
+        .step-marker { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); width: 8px; height: 8px; background-color: #FF9800; border-radius: 50%; box-shadow: 0 0 5px #FF9800; pointer-events: none; z-index: 2;}
+        
+        .playhead { position: absolute; top: -10px; bottom: -10px; width: 3px; background-color: #FF0000; box-shadow: 0 0 15px #FF0000; z-index: 10; display: none; pointer-events: none; }
+        
+        .timeline-info { display: flex; justify-content: space-between; width: 90%; font-family: monospace; font-size: 1.1rem; color: #aaa; }
+        .clock-display { color: #FF9800; font-weight: bold; margin-left: 10px; font-family: sans-serif; }
+        input[type="range"] { width: 90%; cursor: pointer; }
+        
+        .static-bpm { font-size: 1.2rem; font-weight: bold; color: #fff; background: #333; padding: 8px 20px; border-radius: 20px; letter-spacing: 1px; }
+
+        .btn-main-play { background-color: #4CAF50; color: white; border: none; padding: 15px 50px; font-size: 1.5rem; font-weight: bold; border-radius: 40px; cursor: pointer; transition: 0.2s; width: 220px; margin-top: 10px;}
+        .btn-main-play.playing { background-color: #F44336; }
+
+        .ui-locked { pointer-events: none; opacity: 0.4; filter: grayscale(100%); }
+        .grid-locked { pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div class="panel" style="grid-column: 1;">
+        <div class="panel-header">九宮格自動化腳本</div>
+        <div class="panel-content disable-on-play" id="automation-list">
+            <div style="color: #888; text-align: center; margin-top: 20px;">請先選擇右側歌曲</div>
+        </div>
+    </div>
+
+    <div class="center-panel" style="grid-column: 2;">
+        <div class="center-top">
+            <div style="color: #FFD700; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; letter-spacing: 1px;" id="current-quantized-time">目前時脈: 0 + 0/32</div>
+            
+            <div class="large-grid" id="large-grid">
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-7" onclick="setGridAutomation(7)"></div>
+                    <div class="approach-container" id="approach-7"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-8" onclick="setGridAutomation(8)"></div>
+                    <div class="approach-container" id="approach-8"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-9" onclick="setGridAutomation(9)"></div>
+                    <div class="approach-container" id="approach-9"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-4" onclick="setGridAutomation(4)"></div>
+                    <div class="approach-container" id="approach-4"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-5" onclick="setGridAutomation(5)"></div>
+                    <div class="approach-container" id="approach-5"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-6" onclick="setGridAutomation(6)"></div>
+                    <div class="approach-container" id="approach-6"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-1" onclick="setGridAutomation(1)"></div>
+                    <div class="approach-container" id="approach-1"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-2" onclick="setGridAutomation(2)"></div>
+                    <div class="approach-container" id="approach-2"></div>
+                </div>
+                <div class="box-wrapper">
+                    <div class="large-box" id="lbox-3" onclick="setGridAutomation(3)"></div>
+                    <div class="approach-container" id="approach-3"></div>
+                </div>
+            </div>
+            
+            <button class="btn-clear-grid disable-on-play" onclick="setGridAutomation('CLEAR')">清除目前時脈的方塊</button>
+        </div>
+
+        <div class="center-bottom">
+            <div class="large-track-wrapper" id="large-track-wrapper">
+                <div class="playhead" id="playhead"></div>
+            </div>
+
+            <div class="timeline-info">
+                <div>
+                    <span id="time-current">00:00.000</span>
+                    <span class="clock-display" id="clock-current">[時脈: 0]</span>
+                </div>
+                <div class="static-bpm" id="static-bpm-display">BPM: --</div>
+                <span id="time-total">00:00.000</span>
+            </div>
+            <input type="range" id="timeline-slider" min="0" max="100" value="0" step="0.01" class="disable-on-play" oninput="seekAudio(this.value)">
+
+            <button class="btn-main-play" id="btn-play" onclick="togglePlay()">播放</button>
+        </div>
+    </div>
+
+    <div class="panel" style="grid-column: 3;">
+        <div class="panel-header">樂曲資料庫</div>
+        <div class="panel-content disable-on-play" id="music-list"></div>
+        <div class="export-container disable-on-play">
+            <button class="btn-export" onclick="exportGridPresets()">📥 匯出 grid.json</button>
+        </div>
+    </div>
+
+    <script>
+        let musicData = [];
+        let gridDatabase = {}; 
+        let rhythmDatabase = {}; 
+        let presetDatabase = {}; 
+        
+        let hasUnsavedChanges = false;
+        let armedSongInfo = null;
+
+        let isPlaying = false;
+        let playOffset = 0;              
+        let ctxPlayStartTime = 0;        
+        let playAnimationId = null;
+        
+        let bgmBuffer = null;            
+        let bgmSource = null;            
+
+        const domAutomationList = document.getElementById('automation-list');
+        const domMusicList = document.getElementById('music-list');
+        const domLargeTrack = document.getElementById('large-track-wrapper');
+        const domPlayhead = document.getElementById('playhead');
+        const domTimeline = document.getElementById('timeline-slider');
+        const domTimeCurrent = document.getElementById('time-current');
+        const domTimeTotal = document.getElementById('time-total');
+        const domClockCurrent = document.getElementById('clock-current');
+        const domBtnPlay = document.getElementById('btn-play');
+        const domStaticBpm = document.getElementById('static-bpm-display');
+        const domCurrentQuantizedTime = document.getElementById('current-quantized-time');
+
+        let lastRenderedBox = null;
+        let lastRenderedClock = -1;
+        let lastVisualClock = -1;
+        let visualBeatIndex = 0;
+        let lastRenderedActionTime = -1; 
+
+        window.addEventListener('beforeunload', function (e) {
+            if (hasUnsavedChanges) {
+                const msg = '系統不會儲存你的變更。請先「匯出」之後再離開網頁。';
+                e.returnValue = msg; 
+                return msg; 
+            }
+        });
+
+        window.exportGridPresets = function() {
+            const exportArray = [];
+            for (const [musicId, sequence] of Object.entries(gridDatabase)) {
+                if (sequence && sequence.length > 0) {
+                    exportArray.push({
+                        musicId: isNaN(musicId) ? musicId : Number(musicId),
+                        sequence: sequence
+                    });
+                }
+            }
+            const jsonString = JSON.stringify(exportArray, null, 4);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'grid.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            hasUnsavedChanges = false; 
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        async function initApp() {
+            try {
+                musicData = await (await fetch('songs.json')).json();
+                try { rhythmDatabase = await (await fetch('rhythms.json')).json(); } catch(e) {}
+                try {
+                    const presetRaw = await (await fetch('presets.json')).json();
+                    presetRaw.forEach(p => presetDatabase[p.musicId] = p.sequence);
+                } catch(e) {}
+                try {
+                    const gridRaw = await (await fetch('grid.json')).json();
+                    gridRaw.forEach(p => gridDatabase[p.musicId] = p.sequence);
+                } catch(e) {}
+
+                musicData.forEach(song => {
+                    if (!song.rhythms) song.rhythms = {};
+                    song.rhythms['Z'] = 'R16';
+                    if (!gridDatabase[song.id]) gridDatabase[song.id] = [];
+                });
+
+                renderMusicList();
+                renderLargeTrackGrid();
+            } catch(e) {
+                alert("載入失敗，請確認 songs.json 檔案存在且使用 Local Server 開啟。");
+            }
+        }
+
+        function getActiveAction(clock) {
+            if(!armedSongInfo) return null;
+            const seq = presetDatabase[armedSongInfo.id] || [];
+            let active = null;
+            for(let i=0; i<seq.length; i++) {
+                if(seq[i].time <= clock) active = seq[i].action;
+                else break;
+            }
+            if(!active) {
+                if(armedSongInfo.rhythms['I']) active = 'I';
+                else active = 'V';
+            }
+            return active;
+        }
+
+        function getBeatsForAction(action) {
+            if(!action || !armedSongInfo.rhythms[action]) return [];
+            const rId = armedSongInfo.rhythms[action];
+            if(rhythmDatabase[rId]) return rhythmDatabase[rId].beats;
+            return [];
+        }
+
+        function formatFractionTime(decimalVal) {
+            const intPart = Math.floor(decimalVal);
+            let fracPart = Math.round((decimalVal - intPart) * 32);
+            if (fracPart === 32) return `${intPart + 1} + 0/32`;
+            return `${intPart} + ${fracPart}/32`;
+        }
+
+        function getMiniGridHTML(activeBoxId) {
+            const layout = [7, 8, 9, 4, 5, 6, 1, 2, 3];
+            let html = `<div class="mini-grid">`;
+            layout.forEach(id => {
+                const activeClass = (id === activeBoxId) ? 'active' : '';
+                html += `<div class="mini-box ${activeClass}"></div>`;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        function renderAutomationList() {
+            domAutomationList.innerHTML = '';
+            if(!armedSongInfo) {
+                domAutomationList.innerHTML = '<div style="color: #888; text-align: center; margin-top: 20px;">請先選擇右側歌曲</div>';
+                return;
+            }
+
+            const seq = gridDatabase[armedSongInfo.id] || [];
+            seq.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'auto-item';
+                div.innerHTML = `<div class="auto-time">${formatFractionTime(item.time)}</div>${getMiniGridHTML(item.box)}`;
+                
+                div.onclick = () => {
+                    const clockDuration = (60 / armedSongInfo.bpm) * 8;
+                    let targetTime = (item.time * clockDuration) + 0.001; 
+                    if (bgmBuffer && targetTime > bgmBuffer.duration) targetTime = bgmBuffer.duration;
+                    seekAudio(targetTime);
+                };
+                domAutomationList.appendChild(div);
+            });
+        }
+
+        function renderMusicList() {
+            domMusicList.innerHTML = '';
+            musicData.forEach(song => {
+                const div = document.createElement('div');
+                div.className = `music-item ${armedSongInfo && armedSongInfo.id === song.id ? 'armed' : ''}`;
+                div.onclick = () => loadMusic(song);
+                div.innerHTML = `<div class="music-title">${song.id}. ${song.title}</div><div class="music-bpm">BPM: ${song.bpm}</div>`;
+                domMusicList.appendChild(div);
+            });
+        }
+
+        async function loadMusic(song) {
+            if(isPlaying) togglePlay(); 
+            armedSongInfo = song;
+            lastRenderedBox = null;
+            lastRenderedClock = -1;
+            lastVisualClock = -1;
+            lastRenderedActionTime = -1; 
+            visualBeatIndex = 0;
+
+            domPlayhead.style.display = 'block';
+            domStaticBpm.textContent = "⏳ 解碼中...";
+            setUIDisabled(true); 
+            
+            try {
+                const response = await fetch(song.file);
+                const arrayBuffer = await response.arrayBuffer();
+                bgmBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                domStaticBpm.textContent = `BPM: ${song.bpm}`;
+                const clockDuration = (60 / song.bpm) * 8;
+                document.documentElement.style.setProperty('--loop-duration', `${clockDuration}s`);
+
+                domTimeline.max = bgmBuffer.duration;
+                domTimeline.value = 0; 
+                playOffset = 0;
+                domTimeTotal.textContent = formatTime(bgmBuffer.duration);
+                updateTimelineVisuals();
+                
+            } catch(e) {
+                alert("音訊解碼失敗！");
+                domStaticBpm.textContent = "載入失敗";
+            } finally {
+                setUIDisabled(false);
+                renderMusicList(); 
+                renderAutomationList();
+            }
+        }
+
+        function renderLargeTrackGrid() {
+            domLargeTrack.innerHTML = '';
+            domLargeTrack.appendChild(domPlayhead);
+            for(let i=0; i<32; i++) {
+                const div = document.createElement('div');
+                div.className = 'large-step';
+                div.id = `step-track-${i}`;
+                div.onclick = () => {
+                    if(!armedSongInfo) return;
+                    const clockDuration = (60 / armedSongInfo.bpm) * 8;
+                    const currentClock = Math.floor(playOffset / clockDuration);
+                    const targetDecTime = currentClock + (i / 32);
+                    let targetSecs = (targetDecTime * clockDuration) + 0.001;
+                    if (bgmBuffer && targetSecs > bgmBuffer.duration) targetSecs = bgmBuffer.duration;
+                    seekAudio(targetSecs);
+                };
+                domLargeTrack.appendChild(div);
+            }
+        }
+
+        window.setGridAutomation = function(boxId) {
+            if(!armedSongInfo) return alert("請先選擇歌曲！");
+            
+            hasUnsavedChanges = true; 
+            const currTime = isPlaying ? playOffset + (audioCtx.currentTime - ctxPlayStartTime) : playOffset;
+            const clockDuration = (60 / armedSongInfo.bpm) * 8;
+            
+            const decimalTime = currTime / clockDuration;
+            const quantizedTime = Math.round(decimalTime * 32) / 32;
+
+            let seq = gridDatabase[armedSongInfo.id] || [];
+            seq = seq.filter(s => Math.abs(s.time - quantizedTime) > 0.0001);
+            
+            if(boxId !== 'CLEAR') {
+                seq.push({ time: quantizedTime, box: boxId });
+                seq.sort((a, b) => a.time - b.time);
+            }
+            
+            gridDatabase[armedSongInfo.id] = seq;
+            renderAutomationList();
+            
+            lastRenderedBox = null; 
+            lastRenderedActionTime = -1; 
+            updateTimelineVisuals();
+        }
+
+        function formatTime(secs) {
+            if(isNaN(secs)) return "00:00.000";
+            const m = Math.floor(secs / 60).toString().padStart(2, '0');
+            const s = Math.floor(secs % 60).toString().padStart(2, '0');
+            const ms = Math.floor((secs % 1) * 1000).toString().padStart(3, '0');
+            return `${m}:${s}.${ms}`;
+        }
+
+        window.seekAudio = function(val) {
+            if (!bgmBuffer) return;
+            const wasPlaying = isPlaying;
+            if(wasPlaying) togglePlay(); 
+            
+            playOffset = Number(val);
+            lastRenderedClock = -1; 
+            lastRenderedActionTime = -1; 
+            
+            const clockDuration = (60 / armedSongInfo.bpm) * 8;
+            lastVisualClock = Math.floor(playOffset / clockDuration);
+            const secondsPerBeat = 60 / armedSongInfo.bpm;
+            const currentBeatInLoop = (playOffset % clockDuration) / secondsPerBeat;
+            
+            const currentAction = getActiveAction(lastVisualClock);
+            const beats = getBeatsForAction(currentAction) || [];
+            visualBeatIndex = 0;
+            while(visualBeatIndex < beats.length && beats[visualBeatIndex] <= currentBeatInLoop) {
+                visualBeatIndex++;
+            }
+            
+            updateTimelineVisuals(); 
+            if(wasPlaying) togglePlay(); 
+        }
+
+        function updateTimelineVisuals() {
+            if (!armedSongInfo) return;
+
+            const currTime = isPlaying ? playOffset + (audioCtx.currentTime - ctxPlayStartTime) : playOffset;
+            domTimeCurrent.textContent = formatTime(currTime);
+            domTimeline.value = currTime;
+            
+            const clockDuration = (60 / armedSongInfo.bpm) * 8;
+            const decimalTime = currTime / clockDuration;
+            const currentClock = Math.floor(decimalTime);
+            const secondsPerBeat = 60 / armedSongInfo.bpm;
+            const currentBeatInLoop = (currTime % clockDuration) / secondsPerBeat;
+            
+            domClockCurrent.textContent = `[時脈: ${currentClock}]`;
+            const quantizedTime = Math.round(decimalTime * 32) / 32;
+            domCurrentQuantizedTime.textContent = `目前時脈: ${formatFractionTime(quantizedTime)}`;
+            domPlayhead.style.left = `${(currentBeatInLoop / 8) * 100}%`;
+            
+            const seq = gridDatabase[armedSongInfo.id] || [];
+            
+            let activeBox = null;
+            let activeActionTime = -1; 
+            let approaches = { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' };
+
+            for (let i = 0; i < seq.length; i++) {
+                const actionTime = seq[i].time;
+                const targetBox = seq[i].box;
+
+                if (actionTime <= decimalTime + 0.0001) {
+                    activeBox = targetBox;
+                    activeActionTime = actionTime; 
+                }
+
+                if (targetBox !== 'CLEAR') {
+                    const startTime = actionTime - 0.25; 
+                    if (decimalTime >= startTime && decimalTime < actionTime) {
+                        const P = (decimalTime - startTime) / 0.25; 
+                        const scale = 2.2 - (1.2 * P);
+                        let opacity = 0;
+                        if (P < 0.3) opacity = (P / 0.3) * 0.2; 
+                        else opacity = 0.2 + ((P - 0.3) / 0.7) * 0.8; 
+                        approaches[targetBox] += `<div class="approach-circle" style="transform: scale(${scale}); opacity: ${opacity};"></div>`;
+                    }
+                }
+            }
+
+            for (let id = 1; id <= 9; id++) {
+                const container = document.getElementById(`approach-${id}`);
+                if (container && container.innerHTML !== approaches[id]) {
+                    container.innerHTML = approaches[id];
+                }
+            }
+
+            if (activeActionTime !== lastRenderedActionTime || activeBox !== lastRenderedBox) {
+                [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(id => {
+                    const boxEl = document.getElementById(`lbox-${id}`);
+                    if (!boxEl) return;
+
+                    if (id == activeBox) {
+                        if (!boxEl.classList.contains('active')) {
+                            boxEl.classList.add('active');
+                        }
+                        
+                        if (isPlaying && activeActionTime !== lastRenderedActionTime) {
+                            boxEl.classList.remove('beat-hit');
+                            void boxEl.offsetWidth; 
+                            boxEl.classList.add('beat-hit');
+                        }
+                    } else {
+                        boxEl.classList.remove('active', 'beat-hit'); 
+                    }
+                });
+                lastRenderedBox = activeBox;
+                lastRenderedActionTime = activeActionTime; 
+            }
+
+            const currentAction = getActiveAction(currentClock);
+            const activeBeats = getBeatsForAction(currentAction) || [];
+
+            // 移除了視覺拍點對應方塊震動的邏輯，方塊震動僅由上方指令切換驅動。
+
+            if (currentClock !== lastRenderedClock) {
+                for(let i=0; i<32; i++) {
+                    const stepEl = document.getElementById(`step-track-${i}`);
+                    stepEl.innerHTML = ''; 
+                    const beatValue = i * 0.25; 
+                    if (activeBeats.some(b => Math.abs(b - beatValue) < 0.001)) {
+                        stepEl.innerHTML += `<div class="track-beat-note"></div>`;
+                    }
+                    const stepDecTime = currentClock + (i / 32);
+                    if(seq.find(s => Math.abs(s.time - stepDecTime) < 0.0001)) {
+                        stepEl.innerHTML += `<div class="step-marker"></div>`;
+                    }
+                }
+                lastRenderedClock = currentClock;
+            }
+        }
+
+        window.togglePlay = function() {
+            if(!armedSongInfo || !bgmBuffer) return alert("請先等待樂曲解碼完成！");
+            
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+
+            if(isPlaying) {
+                isPlaying = false;
+                playOffset = playOffset + (audioCtx.currentTime - ctxPlayStartTime);
+                if(bgmSource) {
+                    bgmSource.stop();
+                    bgmSource.disconnect();
+                    bgmSource = null;
+                }
+                domBtnPlay.textContent = "播放";
+                domBtnPlay.classList.remove('playing');
+                setUIDisabled(false);
+                updateTimelineVisuals();
+                cancelAnimationFrame(playAnimationId);
+            } else {
+                isPlaying = true;
+                bgmSource = audioCtx.createBufferSource();
+                bgmSource.buffer = bgmBuffer;
+                bgmSource.connect(audioCtx.destination);
+                ctxPlayStartTime = audioCtx.currentTime;
+                bgmSource.start(0, playOffset);
+                
+                domBtnPlay.textContent = "暫停";
+                domBtnPlay.classList.add('playing');
+                setUIDisabled(true);
+                
+                const clockDuration = (60 / armedSongInfo.bpm) * 8;
+                lastVisualClock = Math.floor(playOffset / clockDuration);
+                const secondsPerBeat = 60 / armedSongInfo.bpm;
+                const currentBeatInLoop = (playOffset % clockDuration) / secondsPerBeat;
+                
+                const currentAction = getActiveAction(lastVisualClock);
+                const beats = getBeatsForAction(currentAction) || [];
+                visualBeatIndex = 0;
+                while(visualBeatIndex < beats.length && beats[visualBeatIndex] <= currentBeatInLoop) {
+                    visualBeatIndex++;
+                }
+
+                playAnimationId = requestAnimationFrame(playLoop);
+            }
+        }
+
+        function setUIDisabled(disabled) {
+            const panels = document.querySelectorAll('.disable-on-play');
+            panels.forEach(p => {
+                if(disabled) p.classList.add('ui-locked');
+                else p.classList.remove('ui-locked');
+            });
+            const grid = document.getElementById('large-grid');
+            if (disabled) grid.classList.add('grid-locked');
+            else grid.classList.remove('grid-locked');
+            domTimeline.disabled = disabled;
+        }
+
+        function playLoop() {
+            if(!isPlaying) return;
+            const currentSongTime = playOffset + (audioCtx.currentTime - ctxPlayStartTime);
+            if (currentSongTime >= bgmBuffer.duration) {
+                if(isPlaying) togglePlay(); 
+                return;
+            }
+            updateTimelineVisuals();
+            playAnimationId = requestAnimationFrame(playLoop);
+        }
+
+        initApp();
+    </script>
+</body>
+</html>

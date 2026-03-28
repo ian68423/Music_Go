@@ -3,156 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>九宮格互動網頁 - Web Audio API (150% 音量增強)</title>
-    <style>
-        :root {
-            --loop-duration: 4s; 
-            --scale-unit: 0.025; 
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex; 
-            justify-content: space-between; 
-            background-color: #000; 
-            font-family: sans-serif;
-            overflow: hidden;
-            position: relative;
-        }
-
-        #bg-video {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
-            transform: translateX(-50%) translateY(-50%);
-            z-index: -2; 
-            object-fit: cover; 
-        }
-
-        .video-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.65); 
-            z-index: -1; 
-        }
-
-        .sidebar {
-            width: 350px;
-            background-color: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: column;
-            z-index: 1;
-        }
-
-        .sidebar-left { border-right: 1px solid rgba(255, 255, 255, 0.1); }
-        .sidebar-right { border-left: 1px solid rgba(255, 255, 255, 0.1); }
-
-        .sidebar-header {
-            padding: 20px;
-            color: white;
-            font-size: 1.2rem;
-            font-weight: bold;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-            letter-spacing: 2px;
-        }
-
-        .scroll-list {
-            flex: 1; 
-            overflow-y: auto; 
-            overflow-x: hidden; 
-            padding: 15px;
-        }
-        .scroll-list::-webkit-scrollbar { width: 8px; }
-        .scroll-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }
-        .scroll-list::-webkit-scrollbar-track { background: transparent; }
-
-        .rhythm-item {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            margin-bottom: 10px;
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-        }
-
-        .rhythm-key {
-            width: 40px;
-            height: 40px;
-            background-color: #333; 
-            color: white;           
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-            flex-shrink: 0;
-            margin-right: 15px;
-            transition: all 0.2s;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
-        }
-
-        .rhythm-notes {
-            color: #ddd;
-            font-size: 1rem;          
-            letter-spacing: 2px;        
-            white-space: normal;        
-            word-wrap: break-word;      
-            font-family: "Segoe UI Symbol", "Apple Symbols", "Courier New", Courier, monospace;
-            line-height: 1.5;           
-        }
-
-        .playlist-item {
-            display: flex; align-items: center; padding: 15px; margin-bottom: 10px;
-            background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; transition: 0.2s;
-        }
-        .playlist-item:hover { background-color: rgba(255, 255, 255, 0.2); }
-        .playlist-item.armed { background-color: rgba(255, 215, 0, 0.2); border: 1px solid #FFD700; }
-
-        .play-btn {
-            width: 40px; height: 40px; background-color: #FF0000; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; margin-right: 15px;
-        }
-        .play-btn:active { transform: scale(0.9); }
-        .play-btn::after {
-            content: ''; border-style: solid; border-width: 8px 0 8px 12px;
-            border-color: transparent transparent transparent white; margin-left: 4px; 
-        }
-        .song-info { color: white; display: flex; flex-direction: column; gap: 5px; }
-        .song-title { font-weight: bold; font-size: 1rem; }
-        .song-bpm { font-size: 0.8rem; color: #ccc; }
-
-        .main-workspace {
-            flex: 1; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1;
-        }
-
-        .grid-container { display: grid; grid-template-columns: repeat(3, 120px); grid-template-rows: repeat(3, 120px); gap: 20px; }
-        .box {
-            background-color: rgba(255, 255, 255, 0.15); border-radius: 25px; transition: background-color 0.1s; 
-            backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); 
-        }
-        .box.active {
-            background-color: #FFD700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); border: none;
-            animation-duration: var(--loop-duration);
-            animation-iteration-count: infinite;
-            animation-timing-function: linear;
-        }
-    </style>
+    <title>九宮格互動網頁 - 專業 Live 演出版</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
 </head>
 <body>
 
@@ -164,14 +17,64 @@
     <div class="sidebar sidebar-left">
         <div class="sidebar-header">基本節拍 (Rhythms)</div>
         <div class="scroll-list" id="rhythm-list-container">
+            <div style="color: #888; text-align: center; margin-top: 20px; font-size: 0.9rem;">請先選擇右側歌曲</div>
         </div>
     </div>
 
     <div class="main-workspace">
+        <div class="sequencer-wrapper">
+            <div class="track-container">
+                <div class="track-label" id="track-current-label"></div>
+                <div class="track" id="track-current">
+                    <div class="playhead" id="playhead-current"></div>
+                    <div id="notes-current"></div>
+                </div>
+            </div>
+            <div class="track-container">
+                <div class="track-label" id="track-queued-label"></div>
+                <div class="track disabled" id="track-queued">
+                    <div id="notes-queued"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="grid-container">
-            <div class="box" id="box-1"></div><div class="box" id="box-2"></div><div class="box" id="box-3"></div>
-            <div class="box" id="box-4"></div><div class="box" id="box-5"></div><div class="box" id="box-6"></div>
-            <div class="box" id="box-7"></div><div class="box" id="box-8"></div><div class="box" id="box-9"></div>
+            <div class="box-wrapper">
+                <div class="box" id="box-7"></div>
+                <div class="approach-container" id="approach-7"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-8"></div>
+                <div class="approach-container" id="approach-8"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-9"></div>
+                <div class="approach-container" id="approach-9"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-4"></div>
+                <div class="approach-container" id="approach-4"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-5"></div>
+                <div class="approach-container" id="approach-5"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-6"></div>
+                <div class="approach-container" id="approach-6"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-1"></div>
+                <div class="approach-container" id="approach-1"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-2"></div>
+                <div class="approach-container" id="approach-2"></div>
+            </div>
+            <div class="box-wrapper">
+                <div class="box" id="box-3"></div>
+                <div class="approach-container" id="approach-3"></div>
+            </div>
         </div>
     </div>
 
@@ -181,356 +84,5 @@
         </div>
     </div>
 
-    <script>
-        const musicData = [
-            { id: 1, title: "Golden", bpm: 123, file: "Music1.mp3" },
-            { id: 2, title: "《動物方城市2》", bpm: 128, file: "Music2.mp3" },
-            { id: 3, title: "重低音 Hip-Hop", bpm: 95, file: "Music3.mp3" },
-            { id: 4, title: "疾速搖滾", bpm: 170, file: "Music4.mp3" },
-            { id: 5, title: "流行輕音樂", bpm: 110, file: "Music5.mp3" },
-            { id: 6, title: "爵士鼓點", bpm: 105, file: "Music6.mp3" },
-            { id: 7, title: "復古 Synthwave", bpm: 115, file: "Music7.mp3" },
-            { id: 8, title: "未來貝斯 Future Bass", bpm: 140, file: "Music8.mp3" },
-            { id: 9, title: "熱帶浩室 Tropical House", bpm: 120, file: "Music9.mp3" },
-            { id: 10, title: "硬派電子 Hardstyle", bpm: 150, file: "Music10.mp3" },
-            { id: 11, title: "環境音 Ambient", bpm: 70, file: "Music11.mp3" },
-            { id: 12, title: "R&B 節奏", bpm: 90, file: "Music12.mp3" },
-            { id: 13, title: "拉丁 Reggaeton", bpm: 98, file: "Music13.mp3" },
-            { id: 14, title: "快節奏 Trance", bpm: 138, file: "Music14.mp3" },
-            { id: 15, title: "原聲吉他指彈", bpm: 100, file: "Music15.mp3" }
-        ];
-
-        const rhythmData = {
-            'Q': { beats: [0, 1, 2, 3, 4, 5, 6, 7], notes: "♩ ♩ ♩ ♩ | ♩ ♩ ♩ ♩" },
-            'W': { beats: [0, 0.5, 2, 2.5, 4, 4.5, 6, 6.5], notes: "♫ 𝄽 ♫ 𝄽 | ♫ 𝄽 ♫ 𝄽" },
-            'E': { beats: [0, 0.5, 1.5, 3, 4, 4.5, 5.5, 7], notes: "♫ 𝄾♪ 𝄽 ♩ | ♫ 𝄾♪ 𝄽 ♩" },
-            'R': { beats: [0, 0.5, 1.5, 2, 2.5, 3.5, 4, 4.5, 5.5, 6, 6.5, 7.5], notes: "♫ 𝄾♪ ♫ 𝄾♪ | ♫ 𝄾♪ ♫ 𝄾♪" },
-            'T': { beats: [0, 0.5, 1, 2, 2.5, 3, 4, 4.5, 5, 6, 6.5, 7], notes: "♫ ♩ ♫ ♩ | ♫ ♩ ♫ ♩" },
-            'Y': { beats: [0, 0.75, 1.25, 1.75, 2.25, 2.75, 4, 4.75, 5.25, 5.75, 6.25, 6.75,], notes: "♫ ♫ ♫ ♫ | ♫ ♫ ♫ ♫" },
-            'U': { beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5], notes: "♫ ♫ ♫ ♫ | ♫ ♫ ♫ ♫" },
-            'I': { beats: [0, 0.25, 0.5, 0.75, 2, 2.25, 2.5, 2.75, 4, 4.25, 4.5, 4.75, 6, 6.25, 6.5, 6.75], notes: "♬♬ 𝄽 ♬♬ 𝄽 | ♬♬ 𝄽 ♬♬ 𝄽" },
-
-            'A': { beats: [0, 1.5, 2, 3, 4.5, 5, 6], notes: "♩. ♪ ♩ ♩ | 𝄾 ♪ ♩ ♩ 𝄽" },
-            'S': { beats: [0, 0.5, 2, 3.5, 4, 4.5, 6], notes: "♫ 𝄽 ♩ 𝄾♪ | ♫ 𝄽 ♩ 𝄽" },
-            'D': { beats: [0, 1.5, 2.5, 4, 5.5, 6.5], notes: "♩. ♪ ♩ | ♩. ♪ ♩" },
-            'F': { beats: [0, 2, 3.5, 4, 6, 7.5], notes: "♩ 𝄽 ♩ 𝄾♪ | ♩ 𝄽 ♩ 𝄾♪" },
-            'G': { beats: [0, 3, 3.5, 4.5, 5, 6], notes: "𝅗𝅥. ♫ | 𝄾 ♪ ♩ ♩ 𝄽" },
-            'H': { beats: [0, 1.5, 3, 4, 5.5, 7], notes: "♩. ♩. ♩ | ♩. ♩. ♩" },
-            'J': { beats: [0, 2, 4, 6], notes: "𝅗𝅥   𝅗𝅥   | 𝅗𝅥   𝅗𝅥" },
-            'K': { beats: [0, 3, 4, 7], notes: "♩ 𝄽 𝄽 ♩ | ♩ 𝄽 𝄽 ♩" }
-        };
-
-        const allowedKeys = Object.keys(rhythmData); 
-
-        function injectPatternCSS() {
-            const pulseCurve = [1, 9, 6, 4, 3, 2, 2, 1, 1, 1];
-            const pulseTimePoints = [0, 11, 22, 33, 44, 55, 66, 77, 88, 100];
-            let css = '';
-
-            for (const [key, data] of Object.entries(rhythmData)) {
-                css += `@keyframes pattern-${key} {\n`;
-                let frames = [];
-                frames.push({ pct: 0, val: 1 }); 
-                
-                const pulseDurationPct = 100 / 16; 
-                
-                data.beats.forEach(beat => {
-                    let startPct = (beat / 8) * 100; 
-                    pulseTimePoints.forEach((p, idx) => {
-                        let pct = startPct + (p / 100) * pulseDurationPct;
-                        frames.push({ pct: pct, val: pulseCurve[idx] });
-                    });
-                });
-                
-                frames.push({ pct: 100, val: 1 }); 
-                frames.sort((a, b) => a.pct - b.pct);
-                frames.forEach(f => {
-                    css += `  ${f.pct.toFixed(3)}% { transform: scale(calc(1 + (${f.val} - 1) * var(--scale-unit))); }\n`;
-                });
-                css += `}\n`;
-            }
-            const styleSheet = document.createElement("style");
-            styleSheet.innerText = css;
-            document.head.appendChild(styleSheet);
-        }
-        injectPatternCSS(); 
-
-        const bgVideo = document.getElementById('bg-video');
-        const playlistContainer = document.getElementById('playlist-container');
-        const rhythmListContainer = document.getElementById('rhythm-list-container');
-        
-        // ==========================================
-        // ▼▼▼ 新增：Web Audio API 音效引擎 ▼▼▼
-        // ==========================================
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let clapBuffer = null;
-        let capitalBuffer = null;
-
-        // 非同步讀取並解碼 WAV 檔案
-        async function loadSound(url) {
-            try {
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-                return await audioCtx.decodeAudioData(arrayBuffer);
-            } catch (e) {
-                console.error(`無法載入音效 ${url}:`, e);
-                return null;
-            }
-        }
-
-        // 預先載入兩個音效檔進記憶體
-        loadSound('Clap.wav').then(buffer => clapBuffer = buffer);
-        loadSound('Capital.wav').then(buffer => capitalBuffer = buffer);
-
-        // 使用 Web Audio API 播放音效 (可突破 100% 音量，且零延遲)
-        function playHit(isAccent) {
-            const buffer = isAccent ? capitalBuffer : clapBuffer;
-            if (!buffer) return; // 如果還沒載入完畢則忽略
-
-            // 建立一個音源節點
-            const source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-
-            // 建立一個增益節點 (Gain Node) 來控制音量
-            const gainNode = audioCtx.createGain();
-            // --- 重點：將音量設定為 1.5 (即 150%) ---
-            gainNode.gain.value = 1.5; 
-
-            // 串接：音源 -> 增益節點 -> 輸出(喇叭)
-            source.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            // 立即播放
-            source.start(0);
-        }
-        // ==========================================
-        // ▲▲▲ Web Audio API 引擎結束 ▲▲▲
-        // ==========================================
-        
-        let masterStartTime = null; 
-        let isPlaying = false;      
-        let currentBPM = 120; 
-        let currentPattern = 'Q'; 
-        let queuedPattern = null; 
-        
-        let lastLoopIndexForVisual = 0;   
-        let lastLoopIndexForAudio = -1;   
-        let lastPlayedBeatIndex = -1;     
-        
-        bgVideo.playbackRate = currentBPM / 122;
-        let armedSongInfo = null; 
-        let audioPlayer = new Audio(); 
-
-        function initRhythmList() {
-            for (const [key, data] of Object.entries(rhythmData)) {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'rhythm-item';
-                itemDiv.innerHTML = `
-                    <div class="rhythm-key" id="rhythm-key-${key}">${key}</div>
-                    <div class="rhythm-notes">${data.notes}</div>
-                `;
-                rhythmListContainer.appendChild(itemDiv);
-            }
-        }
-
-        function initPlaylist() {
-            musicData.forEach((song, index) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'playlist-item';
-                itemDiv.id = `playlist-item-${song.id}`;
-                itemDiv.innerHTML = `
-                    <button class="play-btn" onclick="armSong(${index})"></button>
-                    <div class="song-info">
-                        <span class="song-title">${song.id}. ${song.title}</span>
-                        <span class="song-bpm">BPM: ${song.bpm}</span>
-                    </div>
-                `;
-                playlistContainer.appendChild(itemDiv);
-            });
-        }
-
-        function updateRhythmUI() {
-            document.querySelectorAll('.rhythm-key').forEach(el => {
-                el.style.backgroundColor = '#333';
-                el.style.color = 'white';
-                el.style.boxShadow = 'inset 0 0 5px rgba(0,0,0,0.5)';
-            });
-
-            if (isPlaying) {
-                const currentEl = document.getElementById(`rhythm-key-${currentPattern}`);
-                if (currentEl) {
-                    currentEl.style.backgroundColor = '#FFD700'; 
-                    currentEl.style.color = '#000';
-                    currentEl.style.boxShadow = '0 0 15px rgba(255,215,0,0.6)';
-                }
-            }
-
-            if (queuedPattern) {
-                const queuedEl = document.getElementById(`rhythm-key-${queuedPattern}`);
-                if (queuedEl) {
-                    queuedEl.style.backgroundColor = '#00FFFF'; 
-                    queuedEl.style.color = '#000';
-                    queuedEl.style.boxShadow = '0 0 15px rgba(0,255,255,0.6)';
-                }
-            }
-        }
-
-        function armSong(index) {
-            const song = musicData[index];
-            resetApp(); 
-            armedSongInfo = song;
-            audioPlayer.src = song.file;
-            audioPlayer.load();
-
-            currentBPM = song.bpm;
-            const secondsPerBeat = 60 / currentBPM;
-            const loopDuration = secondsPerBeat * 8;
-            document.documentElement.style.setProperty('--loop-duration', `${loopDuration}s`);
-
-            bgVideo.playbackRate = currentBPM / 122;
-            document.querySelectorAll('.playlist-item').forEach(el => el.classList.remove('armed'));
-            document.getElementById(`playlist-item-${song.id}`).classList.add('armed');
-        }
-
-        function resetApp() {
-            isPlaying = false;       
-            masterStartTime = null;  
-            currentPattern = 'Q';
-            queuedPattern = null;
-            
-            lastLoopIndexForVisual = 0;
-            lastLoopIndexForAudio = -1;
-            lastPlayedBeatIndex = -1;
-            
-            updateRhythmUI(); 
-
-            audioPlayer.pause();
-            audioPlayer.currentTime = 0;
-            
-            const allBoxes = document.querySelectorAll('.box');
-            allBoxes.forEach(box => {
-                box.classList.remove('active');
-                box.style.animationName = '';
-                box.style.animationDelay = '0s'; 
-            });
-        }
-
-        initRhythmList();
-        initPlaylist();
-        updateRhythmUI(); 
-
-        function rhythmLoopCheck() {
-            if (isPlaying) {
-                const now = performance.now();
-                const elapsedSeconds = (now - masterStartTime) / 1000;
-                const secondsPerBeat = 60 / currentBPM;
-                const loopDuration = secondsPerBeat * 8; 
-                
-                const currentLoopIndex = Math.floor(elapsedSeconds / loopDuration);
-                const currentBeatInLoop = (elapsedSeconds % loopDuration) / secondsPerBeat;
-
-                if (currentLoopIndex > lastLoopIndexForVisual) {
-                    lastLoopIndexForVisual = currentLoopIndex;
-                    
-                    if (queuedPattern && queuedPattern !== currentPattern) {
-                        currentPattern = queuedPattern;
-                        queuedPattern = null;
-                        
-                        updateRhythmUI(); 
-
-                        const activeBox = document.querySelector('.box.active');
-                        if (activeBox) {
-                            activeBox.style.animationName = `pattern-${currentPattern}`;
-                            const currentPhase = elapsedSeconds % loopDuration;
-                            activeBox.style.animationDelay = `-${currentPhase}s`;
-                        }
-                    }
-                }
-
-                if (currentLoopIndex > lastLoopIndexForAudio) {
-                    lastLoopIndexForAudio = currentLoopIndex;
-                    lastPlayedBeatIndex = -1; 
-                }
-
-                const beats = rhythmData[currentPattern].beats;
-                for (let i = lastPlayedBeatIndex + 1; i < beats.length; i++) {
-                    if (currentBeatInLoop >= beats[i]) {
-                        
-                        const isAccent = (i === 0);
-                        playHit(isAccent);
-                        
-                        lastPlayedBeatIndex = i; 
-                    } else {
-                        break; 
-                    }
-                }
-            }
-            requestAnimationFrame(rhythmLoopCheck); 
-        }
-        requestAnimationFrame(rhythmLoopCheck); 
-
-        document.addEventListener('keydown', function(event) {
-            const keyStr = event.key.toUpperCase(); 
-            
-            if (keyStr === '0') {
-                resetApp();
-                return; 
-            }
-
-            if (keyStr >= '1' && keyStr <= '9') {
-                // 為了符合瀏覽器的自動播放政策，必須在使用者互動時解除 AudioContext 的暫停狀態
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-
-                const targetBox = document.getElementById('box-' + keyStr);
-                if (targetBox && targetBox.classList.contains('active')) return; 
-
-                if (!isPlaying) {
-                    isPlaying = true;
-                    masterStartTime = performance.now(); 
-                    
-                    lastLoopIndexForAudio = -1;
-                    lastPlayedBeatIndex = -1;
-                    
-                    updateRhythmUI(); 
-                    
-                    if (armedSongInfo) {
-                        audioPlayer.play().catch(e => console.log("音樂播放受阻：", e));
-                    }
-                }
-
-                const allBoxes = document.querySelectorAll('.box');
-                allBoxes.forEach(box => {
-                    box.classList.remove('active');
-                    box.style.animationName = '';
-                    box.style.animationDelay = '0s'; 
-                });
-
-                if (targetBox) {
-                    const now = performance.now();
-                    const elapsedSeconds = (now - masterStartTime) / 1000;
-                    const loopDuration = (60 / currentBPM) * 8;
-                    const currentPhase = elapsedSeconds % loopDuration;
-                    
-                    targetBox.style.animationName = `pattern-${currentPattern}`;
-                    targetBox.style.animationDelay = `-${currentPhase}s`;
-                    targetBox.classList.add('active');
-                }
-                return;
-            }
-
-            if (allowedKeys.includes(keyStr)) {
-                if (!isPlaying) return;
-
-                if (keyStr === currentPattern) {
-                    queuedPattern = null;
-                } else {
-                    queuedPattern = keyStr;
-                }
-                updateRhythmUI(); 
-            }
-        });
-    </script>
 </body>
 </html>

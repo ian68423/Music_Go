@@ -1,0 +1,135 @@
+:root {
+    --loop-duration: 4s; 
+    --scale-unit: 0.025; 
+}
+
+body {
+    margin: 0; padding: 0; height: 100vh;
+    display: flex; justify-content: space-between; 
+    background-color: #000; font-family: sans-serif;
+    overflow: hidden; position: relative;
+}
+
+/* 背景與遮罩 */
+#bg-video {
+    position: absolute; top: 50%; left: 50%;
+    min-width: 100%; min-height: 100%; width: auto; height: auto;
+    transform: translateX(-50%) translateY(-50%); z-index: -2; object-fit: cover; 
+}
+.video-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.65); z-index: -1; 
+}
+
+/* 左右側邊欄共用 */
+.sidebar { width: 350px; background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); display: flex; flex-direction: column; z-index: 1; }
+.sidebar-left { border-right: 1px solid rgba(255, 255, 255, 0.1); }
+.sidebar-right { border-left: 1px solid rgba(255, 255, 255, 0.1); }
+.sidebar-header { padding: 20px; color: white; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.1); text-align: center; letter-spacing: 2px; }
+
+/* 卷軸樣式 */
+.scroll-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 15px; }
+.scroll-list::-webkit-scrollbar { width: 8px; }
+.scroll-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }
+.scroll-list::-webkit-scrollbar-track { background: transparent; }
+
+/* 左側迷你時序圖樣式 */
+.rhythm-item { display: flex; align-items: center; padding: 12px; margin-bottom: 10px; background-color: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+.rhythm-key { width: 40px; height: 40px; background-color: #333; color: white; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; margin-right: 15px; transition: all 0.2s; box-shadow: inset 0 0 5px rgba(0,0,0,0.5); }
+.mini-track { position: relative; flex: 1; height: 28px; background-color: rgba(255, 255, 255, 0.1); border-radius: 6px; overflow: hidden; background-image: repeating-linear-gradient(90deg, transparent, transparent calc(12.5% - 1px), rgba(255, 255, 255, 0.15) calc(12.5% - 1px), rgba(255, 255, 255, 0.15) 12.5%); }
+.mini-note-block { position: absolute; top: 20%; height: 60%; width: 6px; background-color: #ddd; border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 3px rgba(255,255,255,0.5); }
+
+/* 歌曲清單項目 (右側) */
+.playlist-item { display: flex; align-items: center; padding: 15px; margin-bottom: 10px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; transition: 0.2s; }
+.playlist-item:hover { background-color: rgba(255, 255, 255, 0.2); }
+.playlist-item.armed { background-color: rgba(255, 215, 0, 0.2); border: 1px solid #FFD700; }
+.play-btn { width: 40px; height: 40px; background-color: #FF0000; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; margin-right: 15px; }
+.play-btn:active { transform: scale(0.9); }
+.play-btn::after { content: ''; border-style: solid; border-width: 8px 0 8px 12px; border-color: transparent transparent transparent white; margin-left: 4px; }
+.song-info { color: white; display: flex; flex-direction: column; gap: 5px; }
+.song-title { font-weight: bold; font-size: 1rem; }
+.song-bpm { font-size: 0.8rem; color: #ccc; }
+
+/* 中央工作區 */
+.main-workspace { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 50px; z-index: 1; }
+
+/* ========================================== */
+/* 序列器 UI (已調窄、變細)                   */
+/* ========================================== */
+.sequencer-wrapper { width: 520px; display: flex; flex-direction: column; gap: 12px; background: rgba(0, 0, 0, 0.4); padding: 20px; border-radius: 12px; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.1); }
+.track-container { display: flex; flex-direction: column; gap: 4px; }
+.track-label { color: white; font-size: 1rem; font-weight: bold; letter-spacing: 2px; text-align: center; min-height: 1.2rem; }
+.track { position: relative; width: 100%; height: 35px; background-color: rgba(255, 255, 255, 0.1); border-radius: 8px; overflow: hidden; background-image: repeating-linear-gradient(90deg, transparent, transparent calc(12.5% - 1px), rgba(255, 255, 255, 0.15) calc(12.5% - 1px), rgba(255, 255, 255, 0.15) 12.5%); }
+.track.disabled { opacity: 0.3; }
+
+.note-block { position: absolute; top: 20%; height: 60%; width: 12px; border-radius: 4px; transform: translateX(-50%); }
+.note-current { background-color: #FFD700; box-shadow: 0 0 6px #FFD700; }
+.note-queued { background-color: #00FFFF; box-shadow: 0 0 6px #00FFFF; }
+
+@keyframes noteHitPulse {
+    0%   { transform: translateX(-50%) scale(1); filter: brightness(1); }
+    30%  { transform: translateX(-50%) scale(1.6); filter: brightness(1.5); }
+    100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+}
+.note-block.hit { animation: noteHitPulse 0.2s ease-out; }
+
+/* JS 控制的高精度掃描線 */
+.playhead {
+    position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+    background-color: white; box-shadow: 0 0 10px white; z-index: 10; display: none; 
+}
+
+/* ========================================== */
+/* 九宮格與獨立縮圈容器系統 (已再放大)        */
+/* ========================================== */
+.grid-container { display: grid; grid-template-columns: repeat(3, 185px); grid-template-rows: repeat(3, 185px); gap: 20px; }
+
+.box-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.box { 
+    position: absolute; 
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15); 
+    border-radius: 40px; 
+    transition: background-color 0.1s, box-shadow 0.1s; 
+    backdrop-filter: blur(8px); 
+    border: 2px solid transparent; 
+}
+
+.box.active {
+    background-color: #FFD700; 
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); 
+    border: none;
+    z-index: 5;
+}
+
+.box.beat-hit {
+    animation: boxHitPulse 0.25s ease-out;
+}
+
+@keyframes boxHitPulse {
+    0%   { transform: scale(1); filter: brightness(1); box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); }
+    15%  { transform: scale(1.12); filter: brightness(1.4); box-shadow: 0 0 45px rgba(255, 215, 0, 1); }
+    100% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); }
+}
+
+/* 獨立於方塊之外的縮圈容器 */
+.approach-container {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 10; 
+}
+
+.approach-circle {
+    position: absolute;
+    top: -2px; left: -2px; right: -2px; bottom: -2px;
+    border: 3px solid #FFD700; 
+    background-color: transparent; 
+    border-radius: 40px; 
+    pointer-events: none;
+}
