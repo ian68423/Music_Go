@@ -60,98 +60,90 @@
             },
             {
                 "time": 5,
-                "box": 4
+                "box": 7
             },
             {
                 "time": 5.125,
-                "box": 4
+                "box": 7
             },
             {
                 "time": 5.25,
-                "box": 7
+                "box": 8
             },
             {
                 "time": 5.375,
-                "box": 7
+                "box": 8
             },
             {
                 "time": 5.5,
-                "box": 8
+                "box": 9
             },
             {
                 "time": 5.625,
-                "box": 8
+                "box": 9
             },
             {
                 "time": 5.75,
-                "box": 9
+                "box": 6
             },
             {
                 "time": 5.875,
-                "box": 9
+                "box": 6
             },
             {
                 "time": 6,
-                "box": 6
+                "box": 3
             },
             {
                 "time": 6.125,
-                "box": 6
+                "box": 3
             },
             {
                 "time": 6.25,
-                "box": 3
+                "box": 2
             },
             {
                 "time": 6.375,
-                "box": 3
+                "box": 2
             },
             {
                 "time": 6.5,
-                "box": 2
+                "box": 1
             },
             {
                 "time": 6.625,
-                "box": 2
+                "box": 1
             },
             {
                 "time": 6.75,
-                "box": 1
+                "box": 4
             },
             {
                 "time": 6.875,
-                "box": 1
+                "box": 4
             },
             {
                 "time": 7,
-                "box": 4
+                "box": 7
             },
             {
                 "time": 7.125,
-                "box": 4
+                "box": 7
             },
             {
                 "time": 7.25,
-                "box": 7
+                "box": 8
             },
             {
                 "time": 7.375,
-                "box": 7
+                "box": 8
             },
             {
                 "time": 7.5,
-                "box": 8
-            },
-            {
-                "time": 7.625,
-                "box": 8
-            },
-            {
-                "time": 7.75,
                 "box": 5
             },
             {
-                "time": 7.875,
+                "time": 7.625,
                 "box": 5
             },
             {
